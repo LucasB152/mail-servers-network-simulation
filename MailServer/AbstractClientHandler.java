@@ -1,3 +1,5 @@
+package MailServer;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -30,7 +32,7 @@ public abstract class AbstractClientHandler implements Runnable {
         }
     }
 
-    private void sendToClient(String message){
+    protected void sendToClient(String message){
         this.outputWriter.print(message + "\r\n");
         this.outputWriter.flush();
     }

@@ -1,3 +1,5 @@
+package MailServer;
+
 import java.net.Socket;
 
 public class POP3ClientHandler extends AbstractClientHandler {
