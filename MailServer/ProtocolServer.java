@@ -9,6 +9,7 @@ public class ProtocolServer {
     private final ServerSocket serverSocket;
     private final ExecutorService threadPool;
     private final int portNumber;
+    private final String domain;
 
     public ProtocolServer(int portNumber, ExecutorService threadPool, String domain) {
         try {
@@ -18,6 +19,7 @@ public class ProtocolServer {
         }
         this.portNumber = portNumber;
         this.threadPool = threadPool;
+        this.domain =domain;
 
         startServer();
     }
@@ -35,9 +37,9 @@ public class ProtocolServer {
 
     private AbstractClientHandler createHandler(Socket client) {
         return switch (this.portNumber) {
-            case 25 -> new SMTPClientHandler(client);
-            case 110 -> new POP3ClientHandler(client);
-            case 143 -> new IMAPClientHandler(client);
+            case 25 -> new SMTPClientHandler(client, domain);
+            case 110 -> new POP3ClientHandler(client, domain);
+            case 143 -> new IMAPClientHandler(client, domain);
             default -> throw new IllegalArgumentException("Unknown port: " + this.portNumber);
         };
     }

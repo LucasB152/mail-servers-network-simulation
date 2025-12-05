@@ -4,7 +4,7 @@ import java.net.Socket;
 
 public class IMAPClientHandler extends AbstractClientHandler {
 
-    public IMAPClientHandler(Socket socket) {
+    public IMAPClientHandler(Socket socket, String domain) {
         super(socket);
     }
 

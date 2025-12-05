@@ -8,11 +8,12 @@ import java.net.Socket;
 
 public abstract class AbstractClientHandler implements Runnable {
     private final Socket socket;
+    protected final String domain;
     private BufferedReader inputReader;
     private PrintWriter outputWriter;
-
-    public AbstractClientHandler(Socket socket) {
+    public AbstractClientHandler(Socket socket, String domain) {
         this.socket = socket;
+        this.domain = domain;
     }
 
     @Override
