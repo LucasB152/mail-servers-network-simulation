@@ -12,8 +12,8 @@ public class POP3ClientHandler extends AbstractClientHandler {
     private static final Map<String, List<Email>> mailbox = new HashMap<>();
     private final List<Integer> mailsToDelete = new ArrayList<>();
 
-    public POP3ClientHandler(Socket socket) {
-        super(socket);
+    public POP3ClientHandler(Socket socket, String domain) {
+        super(socket, domain);
     }
 
     @Override
@@ -119,7 +119,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
         List<Email> listMails = mailbox.get(currentUser);
         int size = 0;
         for(Email mail : listMails) {
-            size += mail.body().length();
+            size += mail.getSize();
         }
 
         sendOK(listMails.size() + " " + size);
@@ -134,12 +134,12 @@ public class POP3ClientHandler extends AbstractClientHandler {
         List<Email> listMails = mailbox.get(currentUser);
         int size = 0;
         for(Email mail : listMails) {
-            size += mail.body().length();
+            size += mail.getSize();
         }
         sendOK(listMails.size() + "messages (" + size + " octets)");
 
         for(int i = 0; i < listMails.size(); i++) {
-            sendToClient((i + 1) + " " + listMails.get(i).body().length());
+            sendToClient((i + 1) + " " + listMails.get(i).getSize());
         }
 
         sendToClient(".");
@@ -166,12 +166,12 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
             Email email = listMails.get(id - 1);
 
-            sendOK(email.body().length() + " octets");
-            sendToClient("From: " + email.from());
-            sendToClient("To: " + email.to());
-            sendToClient("Subject: " + email.subject());
+            sendOK(email.getSize() + " octets");
+            sendToClient("From: " + email.getFrom());
+            sendToClient("To: " + email.getTo());
+            sendToClient("Subject: " + email.getSubject());
             sendToClient("");
-            sendToClient(email.body());
+            sendToClient(email.getBody());
             sendToClient(".");
         }
         catch(NumberFormatException e) {sendERR("Invalid argument");}

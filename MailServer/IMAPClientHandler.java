@@ -5,7 +5,7 @@ import java.net.Socket;
 public class IMAPClientHandler extends AbstractClientHandler {
 
     public IMAPClientHandler(Socket socket, String domain) {
-        super(socket);
+        super(socket, domain);
     }
 
     @Override

@@ -1,5 +1,7 @@
 package MailServer;
 
+import java.nio.charset.StandardCharsets;
+
 public class Email {
     private String from;
     private String to;
@@ -36,5 +38,13 @@ public class Email {
 
     public void setBody(String body) {
         this.body = body;
+    }
+
+    public int getSize() {
+        int size = from.getBytes(StandardCharsets.UTF_8).length;
+        size += to.getBytes(StandardCharsets.UTF_8).length;
+        size += subject.getBytes(StandardCharsets.UTF_8).length;
+        size += body.getBytes(StandardCharsets.UTF_8).length;
+        return size;
     }
 }
