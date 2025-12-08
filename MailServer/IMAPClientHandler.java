@@ -1,5 +1,3 @@
-package MailServer;
-
 import java.net.Socket;
 
 public class IMAPClientHandler extends AbstractClientHandler {

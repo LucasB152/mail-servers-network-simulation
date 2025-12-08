@@ -1,5 +1,3 @@
-package MailServer;
-
 /**
  * Represent the different types of SMTP messages that the server can send to a client.
  * @author Lucas BAUDUIN & Lucas GIOT

@@ -1,5 +1,3 @@
-package MailServer;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -14,8 +12,20 @@ public class MailServer {
         int maxThreads = Integer.parseInt(args[1]);
         ExecutorService threadPool = Executors.newFixedThreadPool(maxThreads);
 
-        ProtocolServer smtpServer = new ProtocolServer(25, threadPool, domain);
+        /*ProtocolServer smtpServer = new ProtocolServer(25, threadPool, domain);
         ProtocolServer pop3Server = new ProtocolServer(110, threadPool, domain);
-        ProtocolServer imapServer = new ProtocolServer(143, threadPool, domain);
+        ProtocolServer imapServer = new ProtocolServer(143, threadPool, domain);*/
+
+        new Thread(() -> {
+            ProtocolServer smtpServer = new ProtocolServer(25, threadPool, domain);
+        }, "SMTP-Server").start();
+
+        new Thread(() -> {
+            ProtocolServer pop3Server = new ProtocolServer(110, threadPool, domain);
+        }, "POP3-Server").start();
+
+        new Thread(() -> {
+            ProtocolServer imapServer = new ProtocolServer(143, threadPool, domain);
+        }, "IMAP-Server").start();
     }
 }

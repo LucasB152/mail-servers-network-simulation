@@ -1,5 +1,3 @@
-package MailServer;
-
 import java.nio.charset.StandardCharsets;
 
 public class Email {

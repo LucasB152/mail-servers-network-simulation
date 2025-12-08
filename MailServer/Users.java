@@ -1,5 +1,3 @@
-package MailServer;
-
 public class Users {
     private static final String[] USERS = {
         "dcd@gembloux.uliege.be",
