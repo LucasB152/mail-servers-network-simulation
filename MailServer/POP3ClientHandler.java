@@ -14,10 +14,15 @@ public class POP3ClientHandler extends AbstractClientHandler {
         super(socket, domain);
     }
 
-    @Override
+    /*@Override
     public void run() {
         sendToClient("+OK POP3 server ready");
         super.run();
+    }*/
+
+    @Override
+    protected void onConnect() {
+        sendOK("POP3 server ready");
     }
 
     @Override
@@ -103,6 +108,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
             return;
         }
 
+        mailbox.putIfAbsent(currentUser, new ArrayList<>());
         state = POP3State.TRANSACTION;
         sendOK("Mailbox locked and ready");
     }
@@ -115,6 +121,9 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
         // TODO: besoin de changer quand le vrai systeme de fichier est là
         List<Email> listMails = mailbox.get(currentUser);
+        Email testMail = new Email("Lucas@test.be", "test@test.be", "TEST", "Salut mec cest un test.\n Et j'aime les pommes.");
+        listMails.add(testMail);
+        
         int size = 0;
         for(Email mail : listMails) {
             size += mail.getSize();
@@ -203,6 +212,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
     private void handleQUIT() {
         if(state == POP3State.TRANSACTION) {
             List<Email> listMails = mailbox.get(currentUser);
+            // TODO: Ajouter une fonction qui fait la suppresion
             for(int index : mailsToDelete)
                 listMails.remove(index);
         }

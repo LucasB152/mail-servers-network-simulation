@@ -20,6 +20,8 @@ public abstract class AbstractClientHandler implements Runnable {
             this.inputReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.outputWriter = new PrintWriter(socket.getOutputStream(), true);
 
+            onConnect();
+
             String line;
             while ((line = inputReader.readLine()) != null) {
                 System.out.println("Message reçu : " + line);
@@ -29,6 +31,11 @@ public abstract class AbstractClientHandler implements Runnable {
         } catch (IOException e) {
             System.out.println("Error while manipulating stream : " + e.getMessage());
         }
+    }
+    
+    protected void onConnect() {
+        // If we need to do things before listening to client
+        // Override in SMTP, POP3, IMAP
     }
 
     protected void sendToClient(String message){
