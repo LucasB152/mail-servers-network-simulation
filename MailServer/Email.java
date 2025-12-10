@@ -1,18 +1,21 @@
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 
 public class Email {
     private String from;
     private String to;
     private String subject;
     private String body;
+    private Date date;
 
     public Email() {}
 
-    public Email(String from, String to, String subject, String body) {
+    public Email(String from, String to, String subject, String body, Date date) {
         this.from = from;
         this.to = to;
         this.subject = subject;
         this.body = body;
+        this.date =date;
     }
 
     public String getFrom() {
@@ -45,6 +48,14 @@ public class Email {
 
     public void setBody(String body) {
         this.body = body;
+    }
+
+    public Date getDate() {
+        return date;
+    }
+
+    public void setDate(Date date) {
+        this.date = date;
     }
 
     public int getSize() {
