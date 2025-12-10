@@ -1,2 +1,2 @@
-public enum SMTPState {HELO, MAIL_FROM, RCPT_TO, DATA, QUIT
+public enum SMTPState {HELO, MAIL_FROM, RCPT_TO, DATA, DATA_READING, QUIT
 }

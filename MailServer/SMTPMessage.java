@@ -4,8 +4,10 @@
  */
 public enum SMTPMessage {
     SERVICE_READY(220, "%s Service ready"),
+    BYE(221, "Bye"),
     GREETING(250, "%s greets %s"),
     OK(250, "OK"),
+    MESSAGE_DELIVERED(250, "Message accepted for delivery"),
     START_MAIL_INPUT(354, "End data with <CR><LF>.<CR><LF>"),
     SERVICE_UNAVAILABLE(421, "Service unavailable, closing connection"),
     SYNTAX_ERROR(501, "Syntax error in parameters or arguments"),

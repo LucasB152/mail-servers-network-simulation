@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -11,10 +12,6 @@ public class MailServer {
         String domain = args[0];
         int maxThreads = Integer.parseInt(args[1]);
         ExecutorService threadPool = Executors.newFixedThreadPool(maxThreads);
-
-        /*ProtocolServer smtpServer = new ProtocolServer(25, threadPool, domain);
-        ProtocolServer pop3Server = new ProtocolServer(110, threadPool, domain);
-        ProtocolServer imapServer = new ProtocolServer(143, threadPool, domain);*/
 
         new Thread(() -> {
             ProtocolServer smtpServer = new ProtocolServer(25, threadPool, domain);

@@ -121,7 +121,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
         // TODO: besoin de changer quand le vrai systeme de fichier est là
         List<Email> listMails = mailbox.get(currentUser);
-        Email testMail = new Email("Lucas@test.be", "test@test.be", "TEST", "Salut mec cest un test.\n Et j'aime les pommes.");
+        Email testMail = new Email("Lucas@test.be", "test@test.be", "TEST", "Salut mec cest un test.\n Et j'aime les pommes.", new Date());
         listMails.add(testMail);
         
         int size = 0;

@@ -1,15 +1,12 @@
 import java.net.Socket;
 
 public class SMTPClientHandler extends AbstractClientHandler {
-    private static final String HELO_REGEX = "HELO .*";
-    private static final String MAIL_FROM_REGEX = "MAIL FROM:.*";
-    private static final String RCPT_TO_REGEX = "RCPT TO:.*";
-    private static final String DATA_REGEX = "DATA";
-    private static final String QUIT_REGEX = "QUIT";
 
     //Represent the next command that the server is waiting for
-    private SMTPState nextState = null;
+    private SMTPState nextState = SMTPState.HELO;
     private Email email = null;
+    private final StringBuilder dataBuffer = new StringBuilder();
+    private String ipAddressDestination = null;
 
     public SMTPClientHandler(Socket socket, String domain) {
         super(socket, domain);
@@ -38,12 +35,19 @@ public class SMTPClientHandler extends AbstractClientHandler {
             if(nextState == SMTPState.RCPT_TO){
                 String email = extractEmail(message);
                 String domain = extractDomain(email);
-                if(!domain.equals(this.domain) || dnsLookup(domain) == null){
-                    sendToClient(SMTPMessage.MAILBOX_UNAVAILABLE.getFullMessage());
-                }else{
+                if(domain.equals(this.domain)){
                     this.email.setTo(email);
                     this.nextState = SMTPState.DATA;
                     sendToClient(SMTPMessage.OK.getFullMessage());
+                }else{
+                    this.ipAddressDestination = dnsLookup(domain);
+                    if(this.domain != null){
+                        this.email.setTo(email);
+                        this.nextState = SMTPState.DATA;
+                        sendToClient(SMTPMessage.OK.getFullMessage());
+                    }else{
+                        sendToClient(SMTPMessage.MAILBOX_UNAVAILABLE.getFullMessage());
+                    }
                 }
             }else{
                 sendToClient(SMTPMessage.BAD_SEQUENCE_COMMAND.getFullMessage());
@@ -51,25 +55,50 @@ public class SMTPClientHandler extends AbstractClientHandler {
         }
         else if(SMTPMessage.DATA.matches(message)){
             if(nextState == SMTPState.DATA){
-
+                sendToClient(SMTPMessage.START_MAIL_INPUT.getFullMessage());
+                this.nextState = SMTPState.DATA_READING;
             }else{
                 sendToClient(SMTPMessage.BAD_SEQUENCE_COMMAND.getFullMessage());
             }
         }
         else if(SMTPMessage.QUIT.matches(message)){
-            if(nextState == SMTPState.DATA){
-
+            if(nextState == SMTPState.QUIT){
+                //Reinitialize for another mail
+                this.email = null;
+                this.dataBuffer.setLength(0);
+                this.nextState = SMTPState.HELO;
+                sendToClient(SMTPMessage.BYE.getFullMessage());
             }else{
                 sendToClient(SMTPMessage.BAD_SEQUENCE_COMMAND.getFullMessage());
             }
         }
         else{
-            // If the message correspond to no command and the waiting command is QUIT, it means that the received message is part of the email body
-            if(nextState == SMTPState.QUIT){
+            // If the message correspond to no command and the waiting command is DATA_READING, it means that the received message is part of the email body
+            if(nextState == SMTPState.DATA_READING){
+                if(message.equals(".")){
+                    this.nextState = SMTPState.QUIT;
+                    this.email.setBody(dataBuffer.toString());
+                    sendEmail();
+                    sendToClient(SMTPMessage.MESSAGE_DELIVERED.getFullMessage());
+                }else if (this.email.getSubject() == null && message.toLowerCase().startsWith("subject:")) {
+                    this.email.setSubject(message.substring(8).trim());
+                }else{
+                    dataBuffer.append(message).append("\r\n");
+                }
 
             }else{
                 sendToClient(SMTPMessage.SYNTAX_ERROR.getFullMessage());
             }
+        }
+    }
+
+    private void sendEmail() {
+        if(this.ipAddressDestination == null){
+            // If ipAddressDestination == null, it means that the mail should be delivered on the actual mail server
+
+
+        }else{
+            //Otherwise, it's on another mail server
         }
     }
 
