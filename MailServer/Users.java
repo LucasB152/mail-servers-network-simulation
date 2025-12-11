@@ -8,11 +8,18 @@ public class Users {
         "vj@uliege.be"
     };
 
+    private static final String PASSWORD = "password";
+
     public static boolean userExists(String username) {
         for(String user : USERS) {
             if(user.equals(username))
                 return true;
         }
         return false;
+    }
+
+    public static boolean goodPassword(String password)
+    {
+        return PASSWORD.equals(password);
     }
 }

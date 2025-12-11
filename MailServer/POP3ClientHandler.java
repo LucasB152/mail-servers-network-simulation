@@ -6,6 +6,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
     private POP3State state = POP3State.AUTH;    
     private String currentUser = null;
     private final List<Integer> mailsToDelete = new ArrayList<>();
+    private MailStorage mailbox = null;
 
     public POP3ClientHandler(Socket socket, String domain) {
         super(socket, domain);
@@ -94,11 +95,12 @@ public class POP3ClientHandler extends AbstractClientHandler {
             sendERR("USER required for PASS");
             return;
         }
-        if(!"password".equals(password)) {
+        if(!Users.goodPassword(password)) {
             sendERR("Invalid password");
             return;
         }
 
+        mailbox = new MailStorage(currentUser);
         state = POP3State.TRANSACTION;
         sendOK("Mailbox locked and ready");
     }
@@ -109,12 +111,12 @@ public class POP3ClientHandler extends AbstractClientHandler {
             return;
         }
         
-        int countMails = MailStorage.getMailsCount(currentUser);
+        int countMails = mailbox.getMailsCount();
         System.out.println("Nbr mails = " + countMails);
         int sizeMails = 0;
         for(int i = 1; i <= countMails; i++) {
             try {
-                Email email = MailStorage.readMail(currentUser, i);
+                Email email = mailbox.readMail(i);
                 sizeMails += email.getSize();
             }
             catch(IOException e) {e.printStackTrace();}
@@ -129,11 +131,11 @@ public class POP3ClientHandler extends AbstractClientHandler {
             return;
         }
 
-        int countMails = MailStorage.getMailsCount(currentUser);
+        int countMails = mailbox.getMailsCount();
         int sizeMails = 0;
         for(int i = 1; i <= countMails; i++) {
             try {
-                Email email = MailStorage.readMail(currentUser, i);
+                Email email = mailbox.readMail(i);
                 sizeMails += email.getSize();
             }
             catch(IOException e) {e.printStackTrace();}
@@ -142,7 +144,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
         for(int i = 1; i <= countMails; i++) {
             try {
-                Email email = MailStorage.readMail(currentUser, i);
+                Email email = mailbox.readMail(i);
                 sendToClient(i + " " + email.getSize());
             }
             catch(IOException e) {sendERR("Unable to read message");}
@@ -164,7 +166,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
         try {
             int id = Integer.parseInt(argument);
             try {
-                Email email = MailStorage.readMail(currentUser, id);
+                Email email = mailbox.readMail(id);
                 if(email == null) {
                     sendERR("No such message");
                     return;
@@ -195,7 +197,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
         try {
             int id = Integer.parseInt(argument);
-            if(id < 1 || id > MailStorage.getMailsCount(currentUser)) {
+            if(id < 1 || id > mailbox.getMailsCount()) {
                 sendERR("No such message");
                 return;
             }
@@ -209,7 +211,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
     private void handleQUIT() {
         if(state == POP3State.TRANSACTION) {
             for(int index : mailsToDelete)
-                MailStorage.deleteMail(currentUser, index);
+                mailbox.deleteMail(index);
         }
 
         state = POP3State.UPDATE;
