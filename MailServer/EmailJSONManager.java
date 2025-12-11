@@ -5,6 +5,7 @@ import java.util.Date;
 public class EmailJSONManager {
 
     public static void writeEmailToJson(Email email, String filePath) throws IOException {
+        System.out.println("filepath:" +filePath);
         File file = new File(filePath);
         File parentDir = file.getParentFile();
 
