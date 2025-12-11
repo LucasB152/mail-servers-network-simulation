@@ -1,24 +1,15 @@
+import java.io.IOException;
 import java.net.Socket;
 import java.util.*;
 
 public class POP3ClientHandler extends AbstractClientHandler {
-    private POP3State state = POP3State.AUTH;
-    
+    private POP3State state = POP3State.AUTH;    
     private String currentUser = null;
-
-    // Temporary messages storage
-    private static final Map<String, List<Email>> mailbox = new HashMap<>();
     private final List<Integer> mailsToDelete = new ArrayList<>();
 
     public POP3ClientHandler(Socket socket, String domain) {
         super(socket, domain);
     }
-
-    /*@Override
-    public void run() {
-        sendToClient("+OK POP3 server ready");
-        super.run();
-    }*/
 
     @Override
     protected void onConnect() {
@@ -108,7 +99,6 @@ public class POP3ClientHandler extends AbstractClientHandler {
             return;
         }
 
-        mailbox.putIfAbsent(currentUser, new ArrayList<>());
         state = POP3State.TRANSACTION;
         sendOK("Mailbox locked and ready");
     }
@@ -118,16 +108,19 @@ public class POP3ClientHandler extends AbstractClientHandler {
             sendNotAuthorized();
             return;
         }
-
-        // TODO: besoin de changer quand le vrai systeme de fichier est là
-        List<Email> listMails = mailbox.get(currentUser);
         
-        int size = 0;
-        for(Email mail : listMails) {
-            size += mail.getSize();
+        int countMails = MailStorage.getMailsCount(currentUser);
+        System.out.println("Nbr mails = " + countMails);
+        int sizeMails = 0;
+        for(int i = 1; i <= countMails; i++) {
+            try {
+                Email email = MailStorage.readMail(currentUser, i);
+                sizeMails += email.getSize();
+            }
+            catch(IOException e) {e.printStackTrace();}
         }
 
-        sendOK(listMails.size() + " " + size);
+        sendOK(countMails + " " + sizeMails);
     }
 
     private void handleLIST() {
@@ -136,15 +129,23 @@ public class POP3ClientHandler extends AbstractClientHandler {
             return;
         }
 
-        List<Email> listMails = mailbox.get(currentUser);
-        int size = 0;
-        for(Email mail : listMails) {
-            size += mail.getSize();
+        int countMails = MailStorage.getMailsCount(currentUser);
+        int sizeMails = 0;
+        for(int i = 1; i <= countMails; i++) {
+            try {
+                Email email = MailStorage.readMail(currentUser, i);
+                sizeMails += email.getSize();
+            }
+            catch(IOException e) {e.printStackTrace();}
         }
-        sendOK(listMails.size() + "messages (" + size + " octets)");
+        sendOK(countMails + "messages (" + sizeMails + " octets)");
 
-        for(int i = 0; i < listMails.size(); i++) {
-            sendToClient((i + 1) + " " + listMails.get(i).getSize());
+        for(int i = 1; i <= countMails; i++) {
+            try {
+                Email email = MailStorage.readMail(currentUser, i);
+                sendToClient(i + " " + email.getSize());
+            }
+            catch(IOException e) {sendERR("Unable to read message");}
         }
 
         sendToClient(".");
@@ -162,22 +163,22 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
         try {
             int id = Integer.parseInt(argument);
-            List<Email> listMails = mailbox.get(currentUser);
+            try {
+                Email email = MailStorage.readMail(currentUser, id);
+                if(email == null) {
+                    sendERR("No such message");
+                    return;
+                }
 
-            if(id < 1 || id > listMails.size()) {
-                sendERR("No such message");
-                return;
+                sendOK(email.getSize() + " octets");
+                sendToClient("From: " + email.getFrom());
+                sendToClient("To: " + email.getTo());
+                sendToClient("Subject: " + email.getSubject());
+                sendToClient("");
+                sendToClient(email.getBody());
+                sendToClient(".");
             }
-
-            Email email = listMails.get(id - 1);
-
-            sendOK(email.getSize() + " octets");
-            sendToClient("From: " + email.getFrom());
-            sendToClient("To: " + email.getTo());
-            sendToClient("Subject: " + email.getSubject());
-            sendToClient("");
-            sendToClient(email.getBody());
-            sendToClient(".");
+            catch(IOException e) {sendERR("Could not read message");}
         }
         catch(NumberFormatException e) {sendERR("Invalid argument");}
     }
@@ -194,9 +195,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
         try {
             int id = Integer.parseInt(argument);
-            List<Email> listMails = mailbox.get(currentUser);
-
-            if(id < 1 || id > listMails.size()) {
+            if(id < 1 || id > MailStorage.getMailsCount(currentUser)) {
                 sendERR("No such message");
                 return;
             }
@@ -209,10 +208,8 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
     private void handleQUIT() {
         if(state == POP3State.TRANSACTION) {
-            List<Email> listMails = mailbox.get(currentUser);
-            // TODO: Ajouter une fonction qui fait la suppresion
             for(int index : mailsToDelete)
-                listMails.remove(index);
+                MailStorage.deleteMail(currentUser, index);
         }
 
         state = POP3State.UPDATE;
