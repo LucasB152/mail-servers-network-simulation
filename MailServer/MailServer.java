@@ -16,7 +16,7 @@ public class MailServer {
 
         //Hardcode the necessary IP address
         Map<String, String> knownServers = new HashMap<>();
-        if(domain.equals("mail.uliege.be")){
+        if(domain.equals("uliege.be") || domain.equals("mail.uliege.be")){
             knownServers.put("info.uliege.be", "10.0.3.7");
         }
 
