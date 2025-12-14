@@ -19,10 +19,10 @@ public class IMAPClientHandler extends AbstractClientHandler {
     public void analyzeMessage(String message) {
         String[] splits = message.split(" ", 3);
         String tag = splits[0];
-        String command = splits[1];
+        String command = splits[1].toUpperCase();
         String arguments = null;
         if(splits.length > 2)
-            arguments = splits[1];
+            arguments = splits[2];
 
         switch (command) {
             case "CAPABILITY":
@@ -45,6 +45,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         }
 
         switch (command) {
+            case "CAPABILITY":
+                break;
+            case "NOOP":
+                break;
+            case "LOGIN":
+                break;
             case "LIST":
                 sendToClient("* LIST (\\HasNoChildren) \"/\" INBOX");
                 sendCompleted(tag, command);
@@ -83,7 +89,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
             return; 
         }
         String user = splits[0];
+        if(user.startsWith("\""))
+            user = user.substring(1, user.length() - 1);
         String password = splits[1];
+        if(password.startsWith("\""))
+            password = password.substring(1, password.length() - 1);
+        System.out.println(user + " " + password);
 
         if(!Users.userExists(user) || !Users.goodPassword(password)) {
             sendToClient(tag + " NO Invalid credentials");
@@ -118,13 +129,39 @@ public class IMAPClientHandler extends AbstractClientHandler {
     }
 
     private void handleFETCH(String tag, String arguments) {
-        /*for(int i = 0; i < mailbox.getMailsCount(); i++) {
-            try {
-                int size = mailbox.readMail(i).getSize();
+        int dataStart = arguments.indexOf('(');
+        if(dataStart == -1) {
+            sendToClient(tag + " BAD Invalid FETCH syntax");
+            return;
+        }
 
+        String range = arguments.substring(0, dataStart).trim();
+        String dataItems = arguments.substring(dataStart);
+        String[] splits = range.split(":", 2);
+        int maxRange = 1;
+        try {
+            maxRange = Integer.parseInt(splits[1]);
+        }
+        catch(NumberFormatException e) {sendToClient(tag + " BAD Invalid range");}
+
+
+        for(int i = 1; i < maxRange; i++) {
+            try {
+                Email email = mailbox.getMail(i);
+                int size = email.getSize();
+                String body = email.getBody();
+
+                /*sendToClient("* " + (i+1) + " FETCH (UID " + m.uid +
+                    " FLAGS (" + String.join(" ", m.flags) + ") " +
+                    "RFC822.SIZE " + size +
+                    " BODY[] {" + size + "}");
+                sendToClient(body);
+                sendToClient(")");*/
             }
             catch(IOException e) {e.printStackTrace();}
-        }*/
+        }
+
+        sendCompleted(tag, "FETCH");
     }
 
     private void handleSTORE(String tag, String arguments) {

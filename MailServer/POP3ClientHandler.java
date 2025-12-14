@@ -116,7 +116,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
         int sizeMails = 0;
         for(int i = 1; i <= countMails; i++) {
             try {
-                Email email = mailbox.readMail(i);
+                Email email = mailbox.getMail(i);
                 sizeMails += email.getSize();
             }
             catch(IOException e) {e.printStackTrace();}
@@ -135,7 +135,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
         int sizeMails = 0;
         for(int i = 1; i <= countMails; i++) {
             try {
-                Email email = mailbox.readMail(i);
+                Email email = mailbox.getMail(i);
                 sizeMails += email.getSize();
             }
             catch(IOException e) {e.printStackTrace();}
@@ -144,7 +144,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
 
         for(int i = 1; i <= countMails; i++) {
             try {
-                Email email = mailbox.readMail(i);
+                Email email = mailbox.getMail(i);
                 sendToClient(i + " " + email.getSize());
             }
             catch(IOException e) {sendERR("Unable to read message");}
@@ -166,7 +166,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
         try {
             int id = Integer.parseInt(argument);
             try {
-                Email email = mailbox.readMail(id);
+                Email email = mailbox.getMail(id);
                 if(email == null) {
                     sendERR("No such message");
                     return;

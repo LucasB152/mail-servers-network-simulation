@@ -13,7 +13,6 @@ public class MailStorage {
         String[] splits = username.split("@");
         String user = splits[0];
         String domain = splits[1];
-        System.out.println("User: " + user + " Domain: " + domain);
 
         return new File(ROOTDIR + "/" + domain + "/" + user + "/INBOX");
     }
@@ -31,8 +30,10 @@ public class MailStorage {
         File[] files = inbox.listFiles((d, name) -> name.endsWith(".json"));
         List<File> list = new ArrayList<>();
         if(files != null) {
-            for(File file : files)
-                list.add(file);
+            for(File file : files) {
+                if(!file.getName().equals("mailbox.json"))
+                    list.add(file);
+            }
         }
 
         list.sort(Comparator.comparingInt(MailStorage::extractUID));
@@ -43,7 +44,22 @@ public class MailStorage {
         File inbox = getInboxDir();
         File mailboxFile = new File(inbox, "mailbox.json");
         
-        //Implementer si mailbox.json n'existe pas
+        if(!mailboxFile.exists()) {
+            int uidValidity = (int) (System.currentTimeMillis() / 1000);
+
+            mailboxFile.getParentFile().mkdirs();
+            String json = "{\n" +
+            "  \"uidValidity\": " + uidValidity + ",\n" +
+            "  \"nextUid\": 1,\n" +
+            "}";
+
+            try(FileWriter writer = new FileWriter(mailboxFile)) {
+                writer.write(json);
+            }
+            catch(Exception e) {e.printStackTrace();}
+
+            return uidValidity;
+        }
 
         try (BufferedReader br = new BufferedReader(new FileReader(mailboxFile))) {
             String line;
@@ -65,7 +81,7 @@ public class MailStorage {
         return listMails().size();
     }
 
-    public Email readMail(int index) throws IOException {
+    public Email getMail(int index) throws IOException {
         List<File> files = listMails();
         if(index < 1 || index > files.size())
             return null;
