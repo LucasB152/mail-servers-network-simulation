@@ -67,6 +67,13 @@ public class IMAPClientHandler extends AbstractClientHandler {
                 sendToClient("* BYE IMAP server logging out");
                 sendCompleted(tag, command);
                 break;
+            case "EXPUNGE":
+                handleEXPUNGE(tag);
+                break;
+            case "CLOSE":
+                handleCLOSE(tag);
+                break;
+            
             default:
                 sendToClient(tag + " BAD Unknown command");
                 break;
@@ -118,7 +125,7 @@ public class IMAPClientHandler extends AbstractClientHandler {
 
     private void handleUID(String tag, String arguments) {
         String[] splits = arguments.split(" ", 2);
-        String subcommand = splits[0];
+        String subcommand = splits[0].toUpperCase();
 
         if(subcommand.equals("FETCH")) 
             handleFETCH(tag, splits[1]);
@@ -137,26 +144,41 @@ public class IMAPClientHandler extends AbstractClientHandler {
 
         String range = arguments.substring(0, dataStart).trim();
         String dataItems = arguments.substring(dataStart);
+        System.out.println("Data: " + dataItems);
         String[] splits = range.split(":", 2);
         int maxRange = 1;
         try {
-            maxRange = Integer.parseInt(splits[1]);
+            if(splits[1].equals("*"))
+                maxRange = mailbox.getMailsCount();
+            else
+                maxRange = Integer.parseInt(splits[1]);
         }
         catch(NumberFormatException e) {sendToClient(tag + " BAD Invalid range");}
 
-
-        for(int i = 1; i < maxRange; i++) {
+        System.out.println("Max range = " + maxRange);
+        for(int i = 1; i <= maxRange; i++) {
             try {
                 Email email = mailbox.getMail(i);
                 int size = email.getSize();
-                String body = email.getBody();
+                StringBuilder response = new StringBuilder();
 
-                /*sendToClient("* " + (i+1) + " FETCH (UID " + m.uid +
-                    " FLAGS (" + String.join(" ", m.flags) + ") " +
-                    "RFC822.SIZE " + size +
-                    " BODY[] {" + size + "}");
-                sendToClient(body);
-                sendToClient(")");*/
+                response.append("* ").append(i).append(" FETCH (");
+                if(dataItems.contains("UID"))
+                    response.append("UID ").append(i).append(" ");
+                if(dataItems.contains("RFC822.SIZE"))
+                    response.append("RFC822.SIZE ").append(size).append(" ");
+                if(dataItems.contains("FLAGS"))
+                    response.append("FLAGS (").append(email.printFlags()).append(") ");
+                if(dataItems.contains("BODY[]"))
+                {
+                    //TODO: A changer selon les headers quon veut
+                    response.append("BODY[] {").append(size).append("}");
+                    sendToClient(response.toString());
+                    sendToClient(email.printIMAP());
+                }
+                else
+                    sendToClient(response.toString());
+                sendToClient(")");    
             }
             catch(IOException e) {e.printStackTrace();}
         }
@@ -165,15 +187,39 @@ public class IMAPClientHandler extends AbstractClientHandler {
     }
 
     private void handleSTORE(String tag, String arguments) {
-
+        String[] splits = arguments.split(" ", 3);
+        //TODO: implementer
+        System.out.println("STORE CALLED");
+        sendCompleted(tag, "STORE");
     }
 
-    private void handleEXPUNGE(String tag) {
+    private int expungeMails() {
+        int nbrDeleted = 0;
         try {
             List<Email> mails = mailbox.getAllMails();
 
-            
+            int index = 1;
+            for(Email email : mails) {
+                if(email.isFlagDeleted()) {
+                    mailbox.deleteMail(index);
+                    nbrDeleted += 1;
+                }
+                index += 1;
+            }
         }
         catch(IOException e) {e.printStackTrace();}
+
+        return nbrDeleted;
+    }
+
+    private void handleEXPUNGE(String tag) {
+        int nbrDeleted = expungeMails();
+        sendToClient(tag + " OK EXPUNGE completed, " + nbrDeleted + " messages removed");
+    }
+
+    private void handleCLOSE(String tag) {
+        expungeMails();
+        mailbox = null;
+        sendCompleted(tag, "CLOSE");
     }
 }

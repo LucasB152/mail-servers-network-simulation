@@ -90,6 +90,14 @@ public class Email {
         this.flags = flags;
     }
 
+    public boolean isFlagDeleted() {
+        for(IMAPFlag flag : flags) {
+            if(flag.equals(IMAPFlag.DELETED))
+                return true;
+        }
+        return false;
+    }
+
     public void setDate(Date date) {
         this.date = date;
     }
@@ -113,5 +121,21 @@ public class Email {
                 ", body='" + body + '\'' +
                 ", date=" + date +
                 '}';
+    }
+
+    public String printIMAP() {
+        StringBuilder response = new StringBuilder();
+        response.append("From: ").append(from).append("\n");
+        response.append("To: ").append(to).append("\n");
+        response.append("Subject: ").append(subject).append("\n\n");
+        response.append(body);
+        return response.toString();
+    }
+
+    public String printFlags() {
+        StringBuilder response = new StringBuilder();
+        for(IMAPFlag flag : flags) 
+            response.append("\\").append(flag).append(" ");
+        return response.toString();
     }
 }

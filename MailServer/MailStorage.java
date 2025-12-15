@@ -50,7 +50,7 @@ public class MailStorage {
             mailboxFile.getParentFile().mkdirs();
             String json = "{\n" +
             "  \"uidValidity\": " + uidValidity + ",\n" +
-            "  \"nextUid\": 1,\n" +
+            "  \"nextUid\": 1\n" +
             "}";
 
             try(FileWriter writer = new FileWriter(mailboxFile)) {
