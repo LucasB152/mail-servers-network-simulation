@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.net.Socket;
+import java.util.*;
 
 public class IMAPClientHandler extends AbstractClientHandler {
     private boolean authenticated = false;
@@ -94,7 +95,6 @@ public class IMAPClientHandler extends AbstractClientHandler {
         String password = splits[1];
         if(password.startsWith("\""))
             password = password.substring(1, password.length() - 1);
-        System.out.println(user + " " + password);
 
         if(!Users.userExists(user) || !Users.goodPassword(password)) {
             sendToClient(tag + " NO Invalid credentials");
@@ -166,5 +166,14 @@ public class IMAPClientHandler extends AbstractClientHandler {
 
     private void handleSTORE(String tag, String arguments) {
 
+    }
+
+    private void handleEXPUNGE(String tag) {
+        try {
+            List<Email> mails = mailbox.getAllMails();
+
+            
+        }
+        catch(IOException e) {e.printStackTrace();}
     }
 }

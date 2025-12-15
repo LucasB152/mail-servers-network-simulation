@@ -90,6 +90,16 @@ public class MailStorage {
         return EmailJSONManager.readEmailFromJson(file.getAbsolutePath());
     }
 
+    public List<Email> getAllMails() throws IOException{
+        List<File> files = listMails();
+        List<Email> list = new ArrayList<>();
+
+        for(File file : files)
+            list.add(EmailJSONManager.readEmailFromJson(file.getAbsolutePath()));
+
+        return list;
+    }
+
     public void deleteMail(int index) {
         List<File> files = listMails();
         if(index < 1 || index > files.size())

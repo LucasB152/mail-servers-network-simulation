@@ -78,7 +78,10 @@ public class POP3ClientHandler extends AbstractClientHandler {
             sendERR("Invalid username");
         }
 
-        if(Users.userExists(username)) {
+        String[] splits = username.split("@", 2);
+        String domain = splits[1];
+
+        if(Users.userExists(username) && domain.equals(super.domain)) {
             currentUser = username;
             sendOK("");
         }
