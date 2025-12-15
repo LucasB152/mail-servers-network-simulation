@@ -9,6 +9,9 @@ public abstract class AbstractClientHandler implements Runnable {
     protected final String domain;
     private BufferedReader inputReader;
     private PrintWriter outputWriter;
+
+    private Boolean isThreadRunning = true;
+
     public AbstractClientHandler(Socket socket, String domain) {
         this.socket = socket;
         this.domain = domain;
@@ -23,7 +26,7 @@ public abstract class AbstractClientHandler implements Runnable {
             onConnect();
 
             String line;
-            while ((line = inputReader.readLine()) != null) {
+            while (isThreadRunning && (line = inputReader.readLine()) != null) {
                 System.out.println("Message reçu : " + line);
                 analyzeMessage(line);
             }
@@ -39,8 +42,19 @@ public abstract class AbstractClientHandler implements Runnable {
     }
 
     protected void sendToClient(String message){
-        this.outputWriter.print(message + "\r\n");
-        this.outputWriter.flush();
+        this.outputWriter.println(message);
+        System.out.println(message);
+    }
+
+    protected void closeConnection(){
+        isThreadRunning = false;
+        try {
+            this.inputReader.close();
+            this.outputWriter.close();
+            this.socket.close();
+        } catch (IOException e) {
+            System.err.println("Impossible to close the socket");
+        }
     }
 
     abstract public void analyzeMessage(String message);

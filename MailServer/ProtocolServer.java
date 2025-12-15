@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 public class ProtocolServer {
@@ -8,6 +10,8 @@ public class ProtocolServer {
     private final ExecutorService threadPool;
     private final int portNumber;
     private final String domain;
+
+    private Map<String, String> knownServers = new HashMap<>();
 
     public ProtocolServer(int portNumber, ExecutorService threadPool, String domain) {
         try {
@@ -18,6 +22,20 @@ public class ProtocolServer {
         this.portNumber = portNumber;
         this.threadPool = threadPool;
         this.domain =domain;
+
+        startServer();
+    }
+
+    public ProtocolServer(ExecutorService threadPool, int portNumber, String domain, Map<String, String> knownServers) {
+        try {
+            this.serverSocket = new ServerSocket(portNumber);
+        } catch (IOException e) {
+            throw new RuntimeException("Error while creating the server. We cannot run this program.");
+        }
+        this.portNumber = portNumber;
+        this.threadPool = threadPool;
+        this.domain =domain;
+        this.knownServers = knownServers;
 
         startServer();
     }
@@ -35,7 +53,7 @@ public class ProtocolServer {
 
     private AbstractClientHandler createHandler(Socket client) {
         return switch (this.portNumber) {
-            case 25 -> new SMTPClientHandler(client, domain);
+            case 25 -> new SMTPClientHandler(client, domain, knownServers);
             case 110 -> new POP3ClientHandler(client, domain);
             case 143 -> new IMAPClientHandler(client, domain);
             default -> throw new IllegalArgumentException("Unknown port: " + this.portNumber);
@@ -46,5 +64,4 @@ public class ProtocolServer {
         serverSocket.close();
         threadPool.shutdown();
     }
-
 }

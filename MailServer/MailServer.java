@@ -1,4 +1,5 @@
-import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -13,9 +14,16 @@ public class MailServer {
         int maxThreads = Integer.parseInt(args[1]);
         ExecutorService threadPool = Executors.newFixedThreadPool(maxThreads);
 
+        //Hardcode the necessary IP address
+        Map<String, String> knownServers = new HashMap<>();
+        if(domain.equals("uliege.be") || domain.equals("mail.uliege.be")){
+            knownServers.put("info.uliege.be", "10.0.3.7");
+        }
+
+
         new Thread(() -> {
-            ProtocolServer smtpServer = new ProtocolServer(25, threadPool, domain);
-        }, "SMTP-Server").start();
+            ProtocolServer smtpServer = new ProtocolServer(threadPool, 25, domain, knownServers);
+            }, "SMTP-Server").start();
 
         new Thread(() -> {
             ProtocolServer pop3Server = new ProtocolServer(110, threadPool, domain);

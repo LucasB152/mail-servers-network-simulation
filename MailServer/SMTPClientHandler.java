@@ -1,38 +1,61 @@
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.Socket;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+/**
+ * This class handles the message received by an SMTP client.
+ * Every client has his own ClientHandler running in a separated thread.
+ * @author Lucas BAUDUIN & Lucas GIOT
+ */
 public class SMTPClientHandler extends AbstractClientHandler {
 
     //Represent the next command that the server is waiting for
     private SMTPState nextState = SMTPState.HELO;
     private Email email = null;
     private final StringBuilder dataBuffer = new StringBuilder();
-    private String ipAddressDestination = null;
+    private final Map<String, String> recipients = new HashMap<>();
+    private final SMTPMailForwarder smtpMailForwarder;
+    private final List<String> PREDIFINED_USERS = List.of(
+            "dcd@gembloux.uliege.be",
+            "vj@gembloux.uliege.be",
+            "dcd@info.uliege.be",
+            "vj@info.uliege.be",
+            "dcd@uliege.be",
+            "vj@uliege.be"
+    );
 
-    public SMTPClientHandler(Socket socket, String domain) {
+    public SMTPClientHandler(Socket socket, String domain, Map<String, String> knownServers) {
         super(socket, domain);
+        this.smtpMailForwarder = new SMTPMailForwarder(knownServers);
+        System.out.println("Client Handler created");
     }
-
     @Override
     public void analyzeMessage(String message) {
-        switch (SMTPClientMessage.match(message)) {
-            case SMTPClientMessage.HELO -> handleHeloMessage();
-            case SMTPClientMessage.MAIL_FROM -> handleMailFromMessage(message);
-            case SMTPClientMessage.RCPT_TO -> handleRcptToMessage(message);
-            case SMTPClientMessage.DATA -> handleDataMessage();
-            case SMTPClientMessage.QUIT -> handleQuitMessage();
-            case null -> handleOtherMessage(message);
+        SMTPClientMessage smtpClientMessage = SMTPClientMessage.match(message);
+
+        if (smtpClientMessage == null) {
+            handleOtherMessage(message);
+            return;
+        }
+
+        switch (smtpClientMessage) {
+            case HELO -> handleHeloMessage(message);
+            case MAIL_FROM -> handleMailFromMessage(message);
+            case RCPT_TO -> handleRcptToMessage(message);
+            case DATA -> handleDataMessage();
+            case QUIT -> handleQuitMessage();
+            default -> handleOtherMessage(message);
         }
     }
 
-    private void handleHeloMessage() {
+
+    private void handleHeloMessage(String message) {
         if(nextState == SMTPState.HELO){
-            this.email = new Email();
-            //TODO: vérifier les règles que doivent suivrent les messages HELO
-            sendToClient(SMTPServerMessage.GREETING.getFullMessage("mail."+this.domain, this.domain));
+            String clientDomain = message.substring(5);
+
+            sendToClient(SMTPServerMessage.GREETING.getFullMessage("mail."+this.domain, clientDomain));
             this.nextState = SMTPState.MAIL_FROM;
         }else{
             sendToClient(SMTPServerMessage.BAD_SEQUENCE_COMMAND.getFullMessage());
@@ -42,8 +65,14 @@ public class SMTPClientHandler extends AbstractClientHandler {
     private void handleMailFromMessage(String message) {
         if(nextState == SMTPState.MAIL_FROM){
             String email = extractEmail(message);
-            sendToClient(verifyEmailValidy(email).getFullMessage());
-            this.nextState = SMTPState.RCPT_TO;
+            if(this.PREDIFINED_USERS.contains(email)){
+                this.email = new Email();
+                this.email.setMailFrom(email);
+                this.nextState = SMTPState.RCPT_TO;
+                sendToClient(SMTPServerMessage.OK.getFullMessage());
+            }else{
+                sendToClient(SMTPServerMessage.INVALID_SENDER.getFullMessage());
+            }
         }else{
             sendToClient(SMTPServerMessage.BAD_SEQUENCE_COMMAND.getFullMessage());
         }
@@ -53,15 +82,16 @@ public class SMTPClientHandler extends AbstractClientHandler {
         if(nextState == SMTPState.RCPT_TO){
             String email = extractEmail(message);
             String domain = extractDomain(email)[1];
+
+            // If the recipient has the same domain as the sender, then there is no forwarding to perform
             if(domain.equals(this.domain)){
-                this.email.setTo(email);
-                this.nextState = SMTPState.DATA;
                 sendToClient(SMTPServerMessage.OK.getFullMessage());
+                this.recipients.put(email, "localhost");
             }else{
-                this.ipAddressDestination = dnsLookup(domain);
-                if(this.domain != null){
-                    this.email.setTo(email);
-                    this.nextState = SMTPState.DATA;
+                // If it's a different domain, we first need to find the ip address of the recipient domain
+                String ipAddressDestination = smtpMailForwarder.findIpAddress(domain);
+                if(ipAddressDestination != null){
+                    this.recipients.put(email, ipAddressDestination);
                     sendToClient(SMTPServerMessage.OK.getFullMessage());
                 }else{
                     sendToClient(SMTPServerMessage.MAILBOX_UNAVAILABLE.getFullMessage());
@@ -73,7 +103,9 @@ public class SMTPClientHandler extends AbstractClientHandler {
     }
 
     private void handleDataMessage(){
-        if(nextState == SMTPState.DATA){
+        System.out.println("State: " + nextState);
+        System.out.println("Size of map: " + this.recipients.size());
+        if(nextState == SMTPState.RCPT_TO && !this.recipients.isEmpty()){
             sendToClient(SMTPServerMessage.START_MAIL_INPUT.getFullMessage());
             this.nextState = SMTPState.DATA_READING;
         }else{
@@ -82,30 +114,24 @@ public class SMTPClientHandler extends AbstractClientHandler {
     }
 
     private void handleQuitMessage(){
-        //TODO vérifier ce qu'il faut faire lorsque le client QUIT, fermer la connexion??
-        if(nextState == SMTPState.QUIT){
-            //Reinitialize for another mail
-            this.email = null;
-            this.dataBuffer.setLength(0);
-            this.nextState = SMTPState.HELO;
-            sendToClient(SMTPServerMessage.BYE.getFullMessage());
-        }else{
-            sendToClient(SMTPServerMessage.BAD_SEQUENCE_COMMAND.getFullMessage());
-        }
+        sendToClient(SMTPServerMessage.BYE.getFullMessage());
+        super.closeConnection();
     }
     
     private void handleOtherMessage(String message){
         if(nextState == SMTPState.DATA_READING){
             if(message.equals(".")){
-                this.nextState = SMTPState.QUIT;
-                this.email.setBody(dataBuffer.toString());
+                this.email.setBody(dataBuffer.toString().trim());
                 sendEmail();
                 sendToClient(SMTPServerMessage.MESSAGE_DELIVERED.getFullMessage());
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("from:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
+                //Reinitialize for another mail
+                this.dataBuffer.setLength(0);
+                this.nextState = SMTPState.MAIL_FROM;
+            }else if (this.email.getSubject() == null && message.toLowerCase().matches("From:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
                 this.email.setFrom(message.substring(5).trim());
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("to:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
+            }else if (this.email.getSubject() == null && message.toLowerCase().matches("To:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
                 this.email.setTo(message.substring(3).trim());
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("subject:\\s*.*")) {
+            }else if (this.email.getSubject() == null && message.toLowerCase().matches("Subject:\\s*.*")) {
                 this.email.setSubject(message.substring(8).trim());
             }else{
                 dataBuffer.append(message).append("\r\n");
@@ -117,29 +143,21 @@ public class SMTPClientHandler extends AbstractClientHandler {
     }
 
     private void sendEmail() {
-        if(this.ipAddressDestination == null){
-            System.out.println("send email");
-            // If ipAddressDestination == null, it means that the mail should be delivered on the actual mail server
-            String[] receiverData = extractDomain(email.getTo());
-            System.out.println(Arrays.toString(receiverData));
-            try {
-                EmailJSONManager.writeEmailToJson(email, "data/" + receiverData[0] + "/" + receiverData[1] + "/INBOX/");
-            } catch (IOException e) {
-                sendToClient(SMTPServerMessage.INVALID_SENDER.getFullMessage());
+        for(String email : this.recipients.keySet()){
+            String recipientIpAddress = this.recipients.get(email);
+            if(recipientIpAddress.equals("localhost")){
+                String[] receiverData = extractDomain(email);
+                try {
+                    EmailJSONManager.writeEmailToJson(this.email, "data/" + receiverData[1] + "/" + receiverData[0] + "/INBOX/");
+                }
+                catch (IOException e) {
+                    sendToClient(SMTPServerMessage.INVALID_SENDER.getFullMessage());
+                }
+            }else{
+                this.email.setRcptTo(email);
+                smtpMailForwarder.forwardEmail(this.email, this.recipients.get(email));
             }
-
-        }else{
-            //Otherwise, it's on another mail server
         }
-    }
-
-    private SMTPServerMessage verifyEmailValidy(String email) {
-        String domain = extractDomain(email)[1];
-        if(domain.equals(this.domain)){
-            this.email.setFrom(email);
-            return SMTPServerMessage.OK;
-        }
-        return SMTPServerMessage.INVALID_SENDER;
     }
 
     private String extractEmail(String line) {
@@ -157,8 +175,7 @@ public class SMTPClientHandler extends AbstractClientHandler {
         int atIndex = trimmed.lastIndexOf('@');
 
         if (atIndex <= 0 || atIndex == trimmed.length() - 1) {
-            //TODO : Manage exception
-            //throw new IllegalArgumentException("Adresse email invalide : " + email);
+            System.err.println("Invalid email address : " + email);
         }
 
         String localPart = trimmed.substring(0, atIndex);
@@ -166,70 +183,4 @@ public class SMTPClientHandler extends AbstractClientHandler {
 
         return new String[] { localPart, domain };
     }
-
-    private void sendEmailtoAnotherSever(Email email, String sender, String receiver){
-
-    }
-
-    /**
-     * Execute a DNS lookup using dig command to find the IP address of the given domain.
-     * @param domain The domain we need to find the IP address
-     * @return The IP address of the given domain, or NULL if the DNS server doesn't know this domain
-     */
-    private String dnsLookup(String domain){
-        //dig +short MX gembloux.uliege.be
-        //dig +short mail.gembloux.uliege.be
-        try {
-            // 1️⃣ Récupère les MX records
-            Process mxProcess = Runtime.getRuntime().exec("dig +short MX " + domain);
-            BufferedReader mxReader = new BufferedReader(new InputStreamReader(mxProcess.getInputStream()));
-            String line;
-            String bestMX = null;
-            int bestPriority = Integer.MAX_VALUE;
-
-            while ((line = mxReader.readLine()) != null) {
-                line = line.trim();
-                if (line.isEmpty()) continue;
-
-                // Les lignes ont le format : "10 mail.example.com."
-                String[] parts = line.split("\\s+");
-                if (parts.length < 2) continue;
-
-                int priority = Integer.parseInt(parts[0]);
-                String mxDomain = parts[1];
-                if (mxDomain.endsWith(".")) mxDomain = mxDomain.substring(0, mxDomain.length() - 1);
-
-                if (priority < bestPriority) {
-                    bestPriority = priority;
-                    bestMX = mxDomain;
-                }
-            }
-
-            mxProcess.waitFor();
-
-            if (bestMX == null) {
-                System.err.println("Aucun MX trouvé pour " + domain);
-                return null;
-            }
-
-            // 2️⃣ Récupère l'IP du MX sélectionné
-            Process ipProcess = Runtime.getRuntime().exec("dig +short " + bestMX);
-            BufferedReader ipReader = new BufferedReader(new InputStreamReader(ipProcess.getInputStream()));
-            String ip = ipReader.readLine(); // on prend la première IP
-            ipProcess.waitFor();
-
-            if (ip == null) {
-                System.err.println("Impossible de résoudre l'IP de " + bestMX);
-                return null;
-            }
-
-            return ip;
-
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
 }
