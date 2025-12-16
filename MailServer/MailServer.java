@@ -3,6 +3,12 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Main entry point of the mail server application.
+ * This class initializes shared resources and starts the SMTP, POP3, and IMAP servers.
+ *
+ * @author Lucas BAUDUIN & Lucas GIOT
+ */
 public class MailServer {
     public static void main(String[] args) {
         if (args.length < 2) {

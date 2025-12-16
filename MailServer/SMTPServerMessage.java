@@ -19,11 +19,24 @@ public enum SMTPServerMessage {
     private final int codeResponse;
     private final String message;
 
+    /**
+     * Creates a new SMTP server message.
+     * @param codeResponse SMTP numeric status code
+     * @param message      associated textual message
+     */
     SMTPServerMessage(int codeResponse, String message) {
         this.codeResponse = codeResponse;
         this.message = message;
     }
 
+    /**
+     * Builds the full SMTP response message.
+     * The message is formatted using the provided arguments and prefixed with
+     * the SMTP status code when applicable.
+     *
+     * @param args optional arguments used to format the message
+     * @return formatted SMTP response message
+     */
     public String getFullMessage(Object... args) {
         String formattedMessage = String.format(this.message, args);
         if (codeResponse == 0) {

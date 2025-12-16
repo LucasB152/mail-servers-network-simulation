@@ -1,3 +1,7 @@
+/**
+ * Represents the different IMAP flags that can be associated with an email message.
+ * @author Lucas BAUDUIN & Lucas GIOT
+ */
 public enum IMAPFlag {
     SEEN("Seen"), ANSWERED("Answered"), FLAGGED("Flagged"), DELETED("Deleted");
 
@@ -11,6 +15,12 @@ public enum IMAPFlag {
         return name;
     }
 
+    /**
+     * Returns the corresponding IMAP flag for a given string.
+     *
+     * @param input string representation of the flag
+     * @return corresponding {@code IMAPFlag}, or {@code null} if not found
+     */
     public static IMAPFlag correspondingFlag(String input) {
         switch (input) {
             case "Seen":
@@ -26,6 +36,12 @@ public enum IMAPFlag {
         }
     }
 
+    /**
+     * Converts a string to an IMAP flag, ignoring case.
+     *
+     * @param s string representation
+     * @return matching {@code IMAPFlag}, or {@code null} if not found
+     */
     public static IMAPFlag fromString(String s) {
         for (IMAPFlag flag : IMAPFlag.values()) {
             if (flag.getName().equalsIgnoreCase(s)) {
