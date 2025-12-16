@@ -136,8 +136,6 @@ services:
   mail_uliege:
     <<: [*uliege-template-volume, *mail-template]
     container_name: mail_uliege
-    volumes:
-      - ./MailServer/data/uliege.be:/app/data/uliege.be
     networks:
       uliege_net:
         ipv4_address: 10.0.1.7
@@ -146,8 +144,6 @@ services:
   mail_gembloux:
     <<: [*gembloux-template-volume, *mail-template]
     container_name: mail_gembloux
-    volumes:
-      - ./MailServer/data/gembloux.uliege.be:/app/data/gembloux.uliege.be
     networks:
       gembloux_net:
         ipv4_address: 10.0.2.7
@@ -156,8 +152,6 @@ services:
   mail_info:
     <<: [*info-template-volume, *mail-template]
     container_name: mail_info
-    volumes:
-      - ./MailServer/data/info.uliege.be:/app/data/info.uliege.be
     networks:
       info_net:
         ipv4_address: 10.0.3.7

@@ -31,7 +31,7 @@ public class MailStorage {
         List<File> list = new ArrayList<>();
         if(files != null) {
             for(File file : files) {
-                if(!file.getName().equals("mailbox.json"))
+                if(!file.getName().equals("mailbox_metadata.json"))
                     list.add(file);
             }
         }
@@ -42,7 +42,7 @@ public class MailStorage {
 
     public int getUIDValidity() {
         File inbox = getInboxDir();
-        File mailboxFile = new File(inbox, "mailbox.json");
+        File mailboxFile = new File(inbox, "mailbox_metadata.json");
         
         if(!mailboxFile.exists()) {
             int uidValidity = (int) (System.currentTimeMillis() / 1000);

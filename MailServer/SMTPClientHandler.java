@@ -42,12 +42,18 @@ public class SMTPClientHandler extends AbstractClientHandler {
 
         switch (smtpClientMessage) {
             case HELO -> handleHeloMessage(message);
+            case EHLO -> handleHeloMessage(message);
             case MAIL_FROM -> handleMailFromMessage(message);
             case RCPT_TO -> handleRcptToMessage(message);
             case DATA -> handleDataMessage();
             case QUIT -> handleQuitMessage();
             default -> handleOtherMessage(message);
         }
+    }
+
+    @Override
+    public void onConnect(){
+        this.sendToClient("220 " + this.domain + "Simple Mail Transfer Service Ready");
     }
 
 
@@ -127,13 +133,14 @@ public class SMTPClientHandler extends AbstractClientHandler {
                 //Reinitialize for another mail
                 this.dataBuffer.setLength(0);
                 this.nextState = SMTPState.MAIL_FROM;
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("From:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
+            }else if (this.email.getSubject() == null && message.toLowerCase().matches("from:\\s*[a-zA-Z0-9._%+-]+(?:\\s*<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})>)?\n")) {
                 this.email.setFrom(message.substring(5).trim());
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("To:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
+            }else if (this.email.getSubject() == null && message.toLowerCase().matches("to:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
                 this.email.setTo(message.substring(3).trim());
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("Subject:\\s*.*")) {
+            }else if (this.email.getSubject() == null && message.toLowerCase().matches("subject:\\s*.*")) {
                 this.email.setSubject(message.substring(8).trim());
-            }else{
+            }else if (!message.matches("^[A-Za-z-]+:.*")){
+                // This condition enable to ignore all the other headers that we doesn't support in this project (Content-Type, Content-Transfer-Encoding, ...)
                 dataBuffer.append(message).append("\r\n");
             }
 
