@@ -53,12 +53,21 @@ public class IMAPClientHandler extends AbstractClientHandler {
             case "LOGIN":
                 break;
             case "LIST":
-                sendToClient("* LIST (\\HasNoChildren) \"/\" INBOX");
-                sendCompleted(tag, command);
-                //handleLIST(tag, arguments);
+                //sendToClient("* LIST (\\HasNoChildren) \"/\" INBOX");
+                //sendCompleted(tag, command);
+                handleLIST(tag, arguments);
                 break;
             case "SELECT":
                 handleSELECT(tag, arguments);
+                break;
+            case "CREATE":
+                handleCREATE(tag, arguments);
+                break;
+            case "DELETE":
+                handleDELETE(tag, arguments);
+                break;
+            case "APPEND":
+                sendNO(tag, "APPEND not supported");
                 break;
             case "UID":
                 handleUID(tag, arguments);
@@ -81,8 +90,18 @@ public class IMAPClientHandler extends AbstractClientHandler {
     }
 
     private void sendCompleted(String tag, String command) {
-        String message = tag + " OK " + command + " completed";
-        sendToClient(message);
+        String response = tag + " OK " + command + " completed";
+        sendToClient(response);
+    }
+    
+    private void sendNO(String tag, String message) {
+        String response = tag + " NO " + message;
+        sendToClient(response);
+    }
+
+    private void sendBAD(String tag, String message) {
+        String response = tag + " BAD " + message;
+        sendToClient(response);
     }
 
     private void handleLOGIN(String tag, String arguments) {
@@ -115,12 +134,121 @@ public class IMAPClientHandler extends AbstractClientHandler {
     }
 
     // Need to change it when using multiple directories
-    //private void handleLIST(String tag, String arguments) {}
+    private void handleLIST(String tag, String arguments) {
+        List<String> mailboxes = mailbox.listMailBoxes();
+
+        for(String mailbox : mailboxes)
+            sendToClient("* LIST (\\HasNoChildren) \"/\" " + mailbox);
+
+        sendCompleted(tag, "LIST");
+    }
 
     private void handleSELECT(String tag, String arguments) {
+        String mailboxName = arguments.trim();
+        if(mailboxName.startsWith("\""))
+            mailboxName = mailboxName.substring(1, mailboxName.length() - 1);
+
+        if(mailboxName.isEmpty()) {
+            sendBAD(tag, "No mailbox name specified");
+            return;
+        }
+        if (!mailbox.mailboxExists(mailboxName)) {
+            sendNO(tag, "Mailbox does not exist");
+            return;
+        }
+
+        mailbox.selectMailbox(mailboxName);
+
         int count = mailbox.getMailsCount();
         sendToClient("* " + count + " EXISTS");
         sendToClient(tag + " OK [UIDVALIDITY " + mailbox.getUIDValidity() + "] SELECT completed");
+    }
+
+    private void handleCREATE(String tag, String arguments) {
+        String mailboxName = arguments.trim();
+        if(mailboxName.isEmpty()) {
+            sendBAD(tag, "No mailbox name specified");
+            return;
+        }
+        if(mailboxName.startsWith("\""))
+            mailboxName = mailboxName.substring(1, mailboxName.length() - 1);
+    
+        if(mailboxName.equalsIgnoreCase("INBOX")) {
+            sendNO(tag, "Cannot create INBOX");
+            return;
+        }
+        if(mailbox.mailboxExists(mailboxName)) {
+            sendNO(tag, "Mailbox already exists");
+            return;
+        }
+
+        boolean created = mailbox.createMailbox(mailboxName);
+        if(created) 
+            sendCompleted(tag, "CREATE");
+        else
+            sendNO(tag, "CREATE failed");
+    }
+
+    private void handleDELETE(String tag, String arguments) {
+        String mailboxName = arguments.trim();
+        if(mailboxName.isEmpty()) {
+            sendBAD(tag, "No mailbox name specified");
+            return;
+        }
+        if(mailboxName.startsWith("\""))
+            mailboxName = mailboxName.substring(1, mailboxName.length() - 1);
+
+        if(mailboxName.equalsIgnoreCase("INBOX")) {
+            sendNO(tag, "Cannot delete INBOX");
+            return;
+        }
+        if(!mailbox.mailboxExists(mailboxName)) {
+            sendNO(tag, "Mailbox already deleted");
+            return;
+        }
+
+        boolean deleted = mailbox.deleteMailbox(mailboxName);
+        if(deleted) {
+            if(mailbox.getCurrentMailbox().equalsIgnoreCase(mailboxName))
+                mailbox = null;
+            sendCompleted(tag, "DELETE");
+        }
+        else
+            sendNO(tag, "DELETE failed");
+    }
+
+    private void handleRENAME(String tag, String arguments) {
+        String[] splits = arguments.split(" ", 2);
+        if(splits.length < 2) {
+            sendBAD(tag, "Invalid RENAME syntax");
+            return;
+        }
+
+        String oldName = splits[0];
+        String newName = splits[1];
+
+        if (oldName.equalsIgnoreCase("INBOX")) {
+            sendNO(tag, "Cannot rename INBOX");
+            return;
+        }
+
+        if(!mailbox.mailboxExists(oldName)) {
+            sendNO(tag, "Source mailbox does not exists");
+            return;
+        }
+        if(mailbox.mailboxExists(newName)) {
+            sendNO(tag, "Destination mailbox already exists");
+            return;
+        }
+
+        boolean renamed = mailbox.renameMailbox(oldName, newName);
+        if(renamed) {
+            if(mailbox.getCurrentMailbox().equals(oldName))
+                mailbox.selectMailbox(newName);
+            sendCompleted(tag, "RENAME");
+        }
+        else
+            sendNO(tag, "RENAME failed");
     }
 
     private void handleUID(String tag, String arguments) {
@@ -135,6 +263,39 @@ public class IMAPClientHandler extends AbstractClientHandler {
             sendToClient(tag + " BAD UID subcommand not supported");
     }
 
+    private List<Integer> computeRange(String tag, String range) {
+        List<Integer> realRange = new ArrayList<>();
+
+        if(range.equals("*")) {
+            int nbrMails = mailbox.getMailsCount();
+            for(int i = 1; i <= nbrMails; i++)
+                realRange.add(i);
+            return realRange;
+        }
+        else if(range.contains(":")) {
+            String[] splits = range.split(":", 2);
+            if(splits[1].equals("*")) {
+                int nbrMails = mailbox.getMailsCount();
+                for(int i = 1; i <= nbrMails; i++)
+                    realRange.add(i);
+                return realRange;
+            }
+            else {
+                int maxRange = Integer.parseInt(splits[1]);
+                for(int i = 1; i <= maxRange; i++)
+                    realRange.add(i);
+            }
+        }
+        else if(range.contains(",")) {
+            String[] splits = range.split(",");
+            for (String uid : splits) {
+                realRange.add(Integer.parseInt(uid.trim()));
+            }
+        }
+
+        return realRange;
+    }
+
     private void handleFETCH(String tag, String arguments) {
         int dataStart = arguments.indexOf('(');
         if(dataStart == -1) {
@@ -145,18 +306,9 @@ public class IMAPClientHandler extends AbstractClientHandler {
         String range = arguments.substring(0, dataStart).trim();
         String dataItems = arguments.substring(dataStart);
         System.out.println("Data: " + dataItems);
-        String[] splits = range.split(":", 2);
-        int maxRange = 1;
-        try {
-            if(splits[1].equals("*"))
-                maxRange = mailbox.getMailsCount();
-            else
-                maxRange = Integer.parseInt(splits[1]);
-        }
-        catch(NumberFormatException e) {sendToClient(tag + " BAD Invalid range");}
+        List<Integer> realRange = computeRange(tag, range);
 
-        System.out.println("Max range = " + maxRange);
-        for(int i = 1; i <= maxRange; i++) {
+        for(int i : realRange) {
             try {
                 Email email = mailbox.getMail(i);
                 int size = email.getSize();
@@ -169,7 +321,7 @@ public class IMAPClientHandler extends AbstractClientHandler {
                     response.append("RFC822.SIZE ").append(size).append(" ");
                 if(dataItems.contains("FLAGS"))
                     response.append("FLAGS (").append(email.printFlags()).append(") ");
-                if(dataItems.contains("BODY[]"))
+                if(dataItems.contains("BODY"))
                 {
                     //TODO: A changer selon les headers quon veut
                     response.append("BODY[] {").append(size).append("}");
@@ -186,10 +338,59 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendCompleted(tag, "FETCH");
     }
 
+    private List<IMAPFlag> parseFlags(String flags) {
+        List<IMAPFlag> listFlags = new ArrayList<>();
+
+        flags = flags.trim();
+        if(flags.startsWith("(") &&  flags.endsWith(")"))
+            flags = flags.substring(1, flags.length() - 1);
+
+        String[] splits = flags.split("\\s+");
+        for(String split : splits) {
+            split = split.trim();
+            if(!split.isEmpty() && split.startsWith("\\")) {
+                split = split.substring(1);
+                IMAPFlag newFlag = IMAPFlag.correspondingFlag(split);
+                if(newFlag != null)
+                    listFlags.add(newFlag);
+            }
+        }
+
+        return listFlags;
+    }
+
     private void handleSTORE(String tag, String arguments) {
         String[] splits = arguments.split(" ", 3);
-        //TODO: implementer
-        System.out.println("STORE CALLED");
+        if(splits.length < 3) {
+            sendBAD(tag, "Invalid STORE syntax");
+            return;
+        }
+        String range = splits[0];
+        List<Integer> realRange = computeRange(tag, range);
+        String operation = splits[1].toUpperCase();
+        String flags = splits[2];
+        List<IMAPFlag> realFlags = parseFlags(flags);
+
+        for(int index : realRange) {
+            try {
+                Email mail = mailbox.getMail(index);
+                List<IMAPFlag> flagsMail = mail.getFlags();
+                if(operation.startsWith("+")) {
+                    for(IMAPFlag flag : realFlags)
+                        flagsMail.add(flag);
+                    mail.setFlags(flagsMail);
+                }
+                else if(operation.startsWith("-")) {
+                    for(IMAPFlag flag : realFlags)
+                        flagsMail.remove(flag);
+                    mail.setFlags(flagsMail);
+                }
+                else
+                    mail.setFlags(realFlags);
+            }
+            catch(IOException e) {sendBAD(tag, "Error while getting mails");}
+        }
+
         sendCompleted(tag, "STORE");
     }
 

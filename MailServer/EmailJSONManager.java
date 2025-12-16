@@ -1,7 +1,8 @@
 import java.io.*;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 public class EmailJSONManager {
 
@@ -61,7 +62,7 @@ public class EmailJSONManager {
         json.append("{\n");
         json.append("  \"from\": \"").append(email.getFrom()).append("\",\n");
         json.append("  \"to\": \"").append(email.getTo()).append("\",\n");
-        json.append("  \"flags\": \"").append(Arrays.toString(email.getFlags())).append("\",\n");
+        json.append("  \"flags\": \"").append(email.printFlags()).append("\",\n");
         json.append("  \"subject\": \"").append(email.getSubject()).append("\",\n");
         json.append("  \"body\": \"").append(email.getBody()).append("\",\n");
         json.append("  \"date\": \"").append(sdf.format(email.getDate() != null ? email.getDate() : new Date())).append("\"\n");
@@ -108,9 +109,9 @@ public class EmailJSONManager {
 
         // Get the flags and convert them in IMAPFlag objects
         String[] flagsStr = extractJsonArray(json, "flags");
-        IMAPFlag[] flags = new IMAPFlag[flagsStr.length];
+        List<IMAPFlag> flags = new ArrayList<>();
         for (int i = 0; i < flagsStr.length; i++) {
-            flags[i] = IMAPFlag.fromString(flagsStr[i]);
+            flags.add(IMAPFlag.fromString(flagsStr[i]));
         }
 
         // Parse the date

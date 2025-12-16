@@ -1,4 +1,6 @@
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Date;
 
 /**
@@ -12,7 +14,8 @@ public class Email {
     private String rcptTo;
 
     //When the Email is created, there is no flags
-    private IMAPFlag[] flags = new IMAPFlag[0];
+    //private IMAPFlag[] flags = new IMAPFlag[0];
+    List<IMAPFlag> flags = new ArrayList<>();
     private String from;
     private String to;
     private String subject;
@@ -21,7 +24,7 @@ public class Email {
 
     public Email() {}
 
-    public Email(String from, String to, IMAPFlag[] flags, String subject, String body, Date date) {
+    public Email(String from, String to, List<IMAPFlag> flags, String subject, String body, Date date) {
         this.from = from;
         this.to = to;
         this.flags = flags;
@@ -82,11 +85,11 @@ public class Email {
         return date;
     }
 
-    public IMAPFlag[] getFlags() {
+    public List<IMAPFlag> getFlags() {
         return flags;
     }
 
-    public void setFlags(IMAPFlag[] flags) {
+    public void setFlags(List<IMAPFlag> flags) {
         this.flags = flags;
     }
 
