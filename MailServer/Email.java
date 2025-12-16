@@ -128,10 +128,11 @@ public class Email {
 
     public String printIMAP() {
         StringBuilder response = new StringBuilder();
-        response.append("From: ").append(from).append("\n");
-        response.append("To: ").append(to).append("\n");
-        response.append("Subject: ").append(subject).append("\n\n");
-        response.append(body);
+        response.append("From: ").append(from).append("\r\n");
+        response.append("To: ").append(to).append("\r\n");
+        response.append("Subject: ").append(subject).append("\r\n");
+        response.append("Date: ").append(date.toString()).append("\r\n\r\n");
+        response.append(body).append("\r\n");
         return response.toString();
     }
 

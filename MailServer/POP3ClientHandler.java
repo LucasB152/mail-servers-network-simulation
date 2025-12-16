@@ -119,14 +119,13 @@ public class POP3ClientHandler extends AbstractClientHandler {
         }
         
         int countMails = mailbox.getMailsCount();
-        System.out.println("Nbr mails = " + countMails);
         int sizeMails = 0;
         for(int i = 1; i <= countMails; i++) {
             try {
                 Email email = mailbox.getMail(i);
                 sizeMails += email.getSize();
             }
-            catch(IOException e) {e.printStackTrace();}
+            catch(IOException e) {sendERR("Error while getting mails");}
         }
 
         sendOK(countMails + " " + sizeMails);
@@ -145,7 +144,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
                 Email email = mailbox.getMail(i);
                 sizeMails += email.getSize();
             }
-            catch(IOException e) {e.printStackTrace();}
+            catch(IOException e) {sendERR("Error while getting mails");}
         }
         sendOK(countMails + " messages (" + sizeMails + " octets)");
 
@@ -154,7 +153,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
                 Email email = mailbox.getMail(i);
                 sendToClient(i + " " + email.getSize());
             }
-            catch(IOException e) {sendERR("Unable to read message");}
+            catch(IOException e) {sendERR("Error while getting mails");}
         }
 
         sendToClient(".");
@@ -187,7 +186,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
                 sendToClient(email.getBody());
                 sendToClient(".");
             }
-            catch(IOException e) {sendERR("Could not read message");}
+            catch(IOException e) {sendERR("Error while getting mails");}
         }
         catch(NumberFormatException e) {sendERR("Invalid argument");}
     }

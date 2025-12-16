@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class IMAPClientHandler extends AbstractClientHandler {
@@ -54,8 +55,6 @@ public class IMAPClientHandler extends AbstractClientHandler {
             case "LOGIN":
                 break;
             case "LIST":
-                //sendToClient("* LIST (\\HasNoChildren) \"/\" INBOX");
-                //sendCompleted(tag, command);
                 handleLIST(tag, arguments);
                 break;
             case "SELECT":
@@ -140,7 +139,6 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendCompleted(tag, "LOGIN");
     }
 
-    // Need to change it when using multiple directories
     private void handleLIST(String tag, String arguments) {
         List<String> mailboxes = mailbox.listMailBoxes();
 
@@ -318,14 +316,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
 
         String range = arguments.substring(0, dataStart).trim();
         String dataItems = arguments.substring(dataStart);
-        System.out.println("Data: " + dataItems);
         List<Integer> realRange = computeRange(tag, range);
 
         for(int i : realRange) {
             try {
-                System.out.println("GETTING THE MAIL AT " + i);
                 Email email = mailbox.getMail(i);
-                int size = email.getSize();
+                int size = email.printIMAP().getBytes(StandardCharsets.UTF_8).length;
                 StringBuilder response = new StringBuilder();
 
                 response.append("* ").append(i).append(" FETCH (");
@@ -336,7 +332,7 @@ public class IMAPClientHandler extends AbstractClientHandler {
                 response.append("UID ").append(uid);
 
                 if(dataItems.contains("RFC822.SIZE"))
-                    response.append(" RFC822.SIZE ").append(size);
+                    response.append(" RFC822.SIZE ").append(size);  
 
 
                 if(dataItems.contains("FLAGS")) {
@@ -345,13 +341,41 @@ public class IMAPClientHandler extends AbstractClientHandler {
 
                 boolean isBodyPeek = dataItems.contains("BODY.PEEK");
                 boolean isBody = dataItems.contains("BODY") && !isBodyPeek;
-                if(isBody || isBodyPeek)
-                {
-                    String bodyTag = isBodyPeek ? "BODY.PEEK[]" : "BODY[]";
-                    response.append(" ").append(bodyTag).append(" {").append(size).append("}");
+
+                if(dataItems.contains("BODY[]")) {
+                    response.append(" ").append("BODY[]").append("{").append(size).append("}\n");
+                    response.append(email.printIMAP()).append(")");
                     sendToClient(response.toString());
-                    sendToClient(email.printIMAP());
-                    sendToClient(")");
+
+                    List<IMAPFlag> flags = email.getFlags();
+                    if(!flags.contains(IMAPFlag.SEEN))
+                        flags.add(IMAPFlag.SEEN);
+                    email.setFlags(flags);
+                }
+                else if(isBody || isBodyPeek)
+                {
+                    String bodyTag = isBodyPeek ? "BODY.PEEK[" : "BODY[";
+                    int start = dataItems.indexOf("[");
+                    int end = dataItems.lastIndexOf("]");
+                    String fields = null;
+                    if (start != -1 && end != -1 && start < end)
+                        fields = dataItems.substring(start + 1, end);
+                    
+                    StringBuilder body = new StringBuilder();
+                    if(fields.contains("From"))
+                        body.append("From: ").append(email.getFrom()).append("\r\n");
+                    if(fields.contains("To"))
+                        body.append("To: ").append(email.getTo()).append("\r\n");
+                    if(fields.contains("Subject"))
+                        body.append("Subject: ").append(email.getSubject()).append("\r\n");
+                    if(fields.contains("Date"))
+                        body.append("Date: ").append(email.getDate().toString()).append("\r\n");
+                    
+                    int sizeFields = body.toString().getBytes(StandardCharsets.UTF_8).length;
+
+                    response.append(" ").append(bodyTag).append(fields).append("] {").append(sizeFields).append("}\n");
+                    response.append(body).append(")");
+                    sendToClient(response.toString());
 
                     if(isBody) {
                         List<IMAPFlag> flags = email.getFlags();
@@ -365,7 +389,7 @@ public class IMAPClientHandler extends AbstractClientHandler {
                     sendToClient(response.toString());
                 }
             }
-            catch(IOException e) {e.printStackTrace();}
+            catch(IOException e) {sendBAD(tag, "Error while getting mails");}
         }
 
         sendCompleted(tag, "FETCH");
@@ -427,7 +451,7 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendCompleted(tag, "STORE");
     }
 
-    private int expungeMails() {
+    private int expungeMails(String tag) {
         int nbrDeleted = 0;
         try {
             List<Email> mails = mailbox.getAllMails();
@@ -441,18 +465,18 @@ public class IMAPClientHandler extends AbstractClientHandler {
                 index += 1;
             }
         }
-        catch(IOException e) {e.printStackTrace();}
+        catch(IOException e) {sendBAD(tag, "Error while getting mails");}
 
         return nbrDeleted;
     }
 
     private void handleEXPUNGE(String tag) {
-        int nbrDeleted = expungeMails();
+        int nbrDeleted = expungeMails(tag);
         sendToClient(tag + " OK EXPUNGE completed, " + nbrDeleted + " messages removed");
     }
 
     private void handleCLOSE(String tag) {
-        expungeMails();
+        expungeMails(tag);
         mailbox = null;
         sendCompleted(tag, "CLOSE");
     }
