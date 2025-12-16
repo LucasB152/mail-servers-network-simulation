@@ -4,20 +4,41 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * Handles a IMAP client session.
+ * This class manages authentication, mailboxes and mails management
+ * according to the IMAP protocol.
+ *
+ * @author Lucas BAUDUIN & Lucas GIOT
+ */
 public class IMAPClientHandler extends AbstractClientHandler {
     private boolean authenticated = false;
     private String currentUser = null;
     private MailStorage mailbox = null;
 
+    /**
+     * Creates a new IMAP client handler.
+     *
+     * @param socket client socket
+     * @param domain domain name of the mail server
+     */
     public IMAPClientHandler(Socket socket, String domain) {
         super(socket, domain);
     }
 
+    /**
+     * Sends the IMAP greeting when a client connects.
+     */
     @Override
     protected void onConnect() {
         sendToClient("* OK IMAP server ready");
     }
 
+    /**
+     * Parses and dispatches IMAP commands received from the client.
+     *
+     * @param message raw IMAP command
+     */
     @Override
     public void analyzeMessage(String message) {
         String[] splits = message.split(" ", 3);
@@ -95,21 +116,45 @@ public class IMAPClientHandler extends AbstractClientHandler {
         }
     }
 
+    /**
+     * Sends a positive IMAP response.
+     *
+     * @param tag tag of the actual command
+     * @param command command called
+     */
     private void sendCompleted(String tag, String command) {
         String response = tag + " OK " + command + " completed";
         sendToClient(response);
     }
     
+    /**
+     * Sends a negative IMAP response.
+     *
+     * @param tag tag of the actual command
+     * @param command command called
+     */
     private void sendNO(String tag, String message) {
         String response = tag + " NO " + message;
         sendToClient(response);
     }
 
+    /**
+     * Sends a IMAP response that tells that something has gone wrong.
+     *
+     * @param tag tag of the actual command
+     * @param command command called
+     */
     private void sendBAD(String tag, String message) {
         String response = tag + " BAD " + message;
         sendToClient(response);
     }
 
+    /**
+     * Handles the LOGIN command.
+     *
+     * @param tag tag of the actual command
+     * @param arguments user and password arguments
+     */
     private void handleLOGIN(String tag, String arguments) {
         if(arguments == null) {
             sendToClient(tag + " BAD Login missing arguments");
@@ -139,6 +184,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendCompleted(tag, "LOGIN");
     }
 
+    /**
+     * Handles the LIST command.
+     *
+     * @param tag tag of the actual command
+     * @param arguments list arguments
+     */
     private void handleLIST(String tag, String arguments) {
         List<String> mailboxes = mailbox.listMailBoxes();
 
@@ -148,6 +199,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendCompleted(tag, "LIST");
     }
 
+    /**
+     * Handles the SELECT command.
+     *
+     * @param tag tag of the actual command
+     * @param arguments name of the mailbox we want to select
+     */
     private void handleSELECT(String tag, String arguments) {
         String mailboxName = arguments.trim();
         if(mailboxName.startsWith("\""))
@@ -169,6 +226,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendToClient(tag + " OK [UIDVALIDITY " + mailbox.getUIDValidity() + "] SELECT completed");
     }
 
+    /**
+     * Handles the CREATE command.
+     *
+     * @param tag tag of the actual command
+     * @param arguments name of the mailbox we want to create
+     */
     private void handleCREATE(String tag, String arguments) {
         String mailboxName = arguments.trim();
         if(mailboxName.isEmpty()) {
@@ -194,6 +257,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
             sendNO(tag, "CREATE failed");
     }
 
+    /**
+     * Handles the DELETE command.
+     *
+     * @param tag tag of the actual command
+     * @param arguments name of the mailbox we want to delete
+     */
     private void handleDELETE(String tag, String arguments) {
         String mailboxName = arguments.trim();
         if(mailboxName.isEmpty()) {
@@ -225,6 +294,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
             sendNO(tag, "DELETE failed");
     }
 
+    /**
+     * Handles the RENAME command.
+     *
+     * @param tag tag of the actual command
+     * @param arguments First: name of the mailbox we want to rename / Second: new name for the mailbox
+     */
     private void handleRENAME(String tag, String arguments) {
         String[] splits = arguments.split(" ", 2);
         if(splits.length < 2) {
@@ -259,6 +334,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
             sendNO(tag, "RENAME failed");
     }
 
+    /**
+     * Handles the UID command and delegate to its sub-commands.
+     *
+     * @param tag tag of the actual command
+     * @param arguments depends of the subcommand used but likely to contains a range of mails
+     */
     private void handleUID(String tag, String arguments) {
         String[] splits = arguments.split(" ", 2);
         String subcommand = splits[0].toUpperCase();
@@ -271,6 +352,13 @@ public class IMAPClientHandler extends AbstractClientHandler {
             sendToClient(tag + " BAD UID subcommand not supported");
     }
 
+    /**
+     * Compute the range as a real range of integers
+     * 
+     * @param tag tag of the actual command
+     * @param range the raw range of type String we want to transform to usable uids
+     * @return a List<Integer> containing uids computed 
+     */
     private List<Integer> computeRange(String tag, String range) {
         List<Integer> realRange = new ArrayList<>();
 
@@ -307,6 +395,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         return realRange;
     }
 
+    /**
+     * Handles the UID FETCH subcommand.
+     *
+     * @param tag tag of the actual command
+     * @param arguments range + all fields send by the client (FLAGS, RFC822.SIZE, BODY[], ...)
+     */
     private void handleFETCH(String tag, String arguments) {
         int dataStart = arguments.indexOf('(');
         if(dataStart == -1) {
@@ -395,6 +489,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendCompleted(tag, "FETCH");
     }
 
+    /**
+     * Parse the raw flags as a list of IMAPFlag
+     * 
+     * @param flags raw flags of type String
+     * @return a List<IMAPFLag> with the parsed flags
+     */
     private List<IMAPFlag> parseFlags(String flags) {
         List<IMAPFlag> listFlags = new ArrayList<>();
 
@@ -416,6 +516,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         return listFlags;
     }
 
+    /**
+     * Handles the UID STORE subcommand.
+     *
+     * @param tag tag of the actual command
+     * @param arguments range, operation (add, delete, replace), flags
+     */
     private void handleSTORE(String tag, String arguments) {
         String[] splits = arguments.split(" ", 3);
         if(splits.length < 3) {
@@ -451,6 +557,12 @@ public class IMAPClientHandler extends AbstractClientHandler {
         sendCompleted(tag, "STORE");
     }
 
+    /**
+     * Delete all mails that has been flagged with /Deleted
+     * 
+     * @param tag tag of the actual command
+     * @return the number of mails deleted
+     */
     private int expungeMails(String tag) {
         int nbrDeleted = 0;
         try {
@@ -470,11 +582,21 @@ public class IMAPClientHandler extends AbstractClientHandler {
         return nbrDeleted;
     }
 
+    /**
+     * Handles the EXPUNGE command.
+     *
+     * @param tag tag of the actual command
+     */
     private void handleEXPUNGE(String tag) {
         int nbrDeleted = expungeMails(tag);
         sendToClient(tag + " OK EXPUNGE completed, " + nbrDeleted + " messages removed");
     }
 
+    /**
+     * Handles the CLOSE command.
+     *
+     * @param tag tag of the actual command
+     */
     private void handleCLOSE(String tag) {
         expungeMails(tag);
         mailbox = null;

@@ -7,10 +7,20 @@ public enum IMAPFlag {
 
     private final String name;
 
+    /**
+     * Creates a new IMAPFlag.
+     * 
+     * @param name name of the flag (4 differents ones)
+     */
     IMAPFlag(String name) {
         this.name = name;
     }
 
+    /**
+     * Get the name of a IMAPFlag.
+     * 
+     * @return the name of the flag
+     */
     public String getName() {
         return name;
     }
