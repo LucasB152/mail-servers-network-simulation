@@ -12,6 +12,8 @@ public class MailStorage {
         user = splits[0];
         domain = splits[1];
         currentDir = "INBOX";
+        if(!mailboxExists(currentDir))
+            createMailbox(currentDir);
     }
 
     public String getCurrentMailbox() {
@@ -30,7 +32,7 @@ public class MailStorage {
         return new File(ROOTDIR + "/" + domain + "/" + user + "/" + mailboxName);
     }
 
-    private static int extractUID(File file) {
+    public static int extractUID(File file) {
         String name = file.getName();
         return Integer.parseInt(name.substring(4, name.length() - 5));
     }
@@ -76,7 +78,7 @@ public class MailStorage {
         "  \"nextUid\": 1\n" +
         "}";
 
-        File jsonFile = new File(mailbox, "mailbox.json");
+        File jsonFile = new File(mailbox, "mailbox_metadata.json");
         try(FileWriter writer = new FileWriter(jsonFile)) {
             writer.write(json);
         }
@@ -126,22 +128,22 @@ public class MailStorage {
         if(!inbox.exists())
             return new ArrayList<>();
 
-        File[] files = inbox.listFiles((d, name) -> name.endsWith(".json"));
+        File[] files = inbox.listFiles((d, name) -> name.startsWith("msg_") && name.endsWith(".json"));
         List<File> list = new ArrayList<>();
         if(files != null) {
             for(File file : files) {
-                if(!file.getName().equals("mailbox_metadata.json"))
-                    list.add(file);
+                list.add(file);
             }
         }
 
-        list.sort(Comparator.comparingInt(MailStorage::extractUID));
+        if(!list.isEmpty())
+            list.sort(Comparator.comparingInt(MailStorage::extractUID));
         return list;
     }
 
     public int getUIDValidity() {
-        File inbox = getInboxDir();
-        File jsonFile = new File(inbox, "mailbox_metadata.json");
+        File mailbox = getCurrentDir();
+        File jsonFile = new File(mailbox, "mailbox_metadata.json");
         
         if(!jsonFile.exists()) {
             int uidValidity = createMailboxJSON(mailbox);

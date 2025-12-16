@@ -1,3 +1,4 @@
+import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.*;
@@ -66,8 +67,14 @@ public class IMAPClientHandler extends AbstractClientHandler {
             case "DELETE":
                 handleDELETE(tag, arguments);
                 break;
+            case "RENAME":
+                handleRENAME(tag, arguments);
+                break;
             case "APPEND":
                 sendNO(tag, "APPEND not supported");
+                break;
+            case "CHECK":
+                sendCompleted(tag, "CHECK");
                 break;
             case "UID":
                 handleUID(tag, arguments);
@@ -84,7 +91,7 @@ public class IMAPClientHandler extends AbstractClientHandler {
                 break;
             
             default:
-                sendToClient(tag + " BAD Unknown command");
+                sendNO(tag, "Command not implemented");
                 break;
         }
     }
@@ -202,6 +209,9 @@ public class IMAPClientHandler extends AbstractClientHandler {
             sendNO(tag, "Cannot delete INBOX");
             return;
         }
+
+        if(mailboxName.startsWith("Trash/"))
+            mailboxName = mailboxName.substring("Trash/".length());
         if(!mailbox.mailboxExists(mailboxName)) {
             sendNO(tag, "Mailbox already deleted");
             return;
@@ -276,8 +286,9 @@ public class IMAPClientHandler extends AbstractClientHandler {
             String[] splits = range.split(":", 2);
             if(splits[1].equals("*")) {
                 int nbrMails = mailbox.getMailsCount();
-                for(int i = 1; i <= nbrMails; i++)
-                    realRange.add(i);
+                int start = Integer.parseInt(splits[0]);
+                for(; start <= nbrMails; start++)
+                    realRange.add(start);
                 return realRange;
             }
             else {
@@ -292,6 +303,8 @@ public class IMAPClientHandler extends AbstractClientHandler {
                 realRange.add(Integer.parseInt(uid.trim()));
             }
         }
+        else
+            realRange.add(Integer.parseInt(range));
 
         return realRange;
     }
@@ -310,27 +323,47 @@ public class IMAPClientHandler extends AbstractClientHandler {
 
         for(int i : realRange) {
             try {
+                System.out.println("GETTING THE MAIL AT " + i);
                 Email email = mailbox.getMail(i);
                 int size = email.getSize();
                 StringBuilder response = new StringBuilder();
 
                 response.append("* ").append(i).append(" FETCH (");
-                if(dataItems.contains("UID"))
-                    response.append("UID ").append(i).append(" ");
+
+                List<File> files = mailbox.listMails();
+                File file = files.get(i - 1);
+                int uid = MailStorage.extractUID(file);
+                response.append("UID ").append(uid);
+
                 if(dataItems.contains("RFC822.SIZE"))
-                    response.append("RFC822.SIZE ").append(size).append(" ");
-                if(dataItems.contains("FLAGS"))
-                    response.append("FLAGS (").append(email.printFlags()).append(") ");
-                if(dataItems.contains("BODY"))
+                    response.append(" RFC822.SIZE ").append(size);
+
+
+                if(dataItems.contains("FLAGS")) {
+                    response.append(" FLAGS (").append(email.printFlags()).append(")");
+                }
+
+                boolean isBodyPeek = dataItems.contains("BODY.PEEK");
+                boolean isBody = dataItems.contains("BODY") && !isBodyPeek;
+                if(isBody || isBodyPeek)
                 {
-                    //TODO: A changer selon les headers quon veut
-                    response.append("BODY[] {").append(size).append("}");
+                    String bodyTag = isBodyPeek ? "BODY.PEEK[]" : "BODY[]";
+                    response.append(" ").append(bodyTag).append(" {").append(size).append("}");
                     sendToClient(response.toString());
                     sendToClient(email.printIMAP());
+                    sendToClient(")");
+
+                    if(isBody) {
+                        List<IMAPFlag> flags = email.getFlags();
+                        if(!flags.contains(IMAPFlag.SEEN))
+                            flags.add(IMAPFlag.SEEN);
+                        email.setFlags(flags);
+                    }
                 }
-                else
+                else {
+                    response.append(")");
                     sendToClient(response.toString());
-                sendToClient(")");    
+                }
             }
             catch(IOException e) {e.printStackTrace();}
         }
