@@ -140,8 +140,8 @@ public class MailStorage {
     }
 
     public int getUIDValidity() {
-        File inbox = getInboxDir();
-        File jsonFile = new File(inbox, "mailbox_metadata.json");
+        File mailbox = getCurrentDir();
+        File jsonFile = new File(mailbox, "mailbox_metadata.json");
         
         if(!jsonFile.exists()) {
             int uidValidity = createMailboxJSON(mailbox);
