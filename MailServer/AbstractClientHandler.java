@@ -27,7 +27,7 @@ public abstract class AbstractClientHandler implements Runnable {
 
             String line;
             while (isThreadRunning && (line = inputReader.readLine()) != null) {
-                System.out.println("Message reçu : " + line);
+                System.out.println("[" + this.getClass() + "] Message reçu : " + line);
                 analyzeMessage(line);
             }
 
@@ -43,7 +43,7 @@ public abstract class AbstractClientHandler implements Runnable {
 
     protected void sendToClient(String message){
         this.outputWriter.println(message);
-        System.out.println(message);
+        System.out.println("[" + this.getClass() + "] Message envoyé : " + message);
     }
 
     protected void closeConnection(){
