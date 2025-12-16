@@ -2,21 +2,42 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.*;
 
+/**
+ * Handles a POP3 client session.
+ * This class manages authentication, message retrieval, and deletion
+ * according to the POP3 protocol.
+ *
+ * @author Lucas BAUDUIN & Lucas GIOT
+ */
 public class POP3ClientHandler extends AbstractClientHandler {
     private POP3State state = POP3State.AUTH;    
     private String currentUser = null;
     private final List<Integer> mailsToDelete = new ArrayList<>();
     private MailStorage mailbox = null;
 
+    /**
+     * Creates a new POP3 client handler.
+     *
+     * @param socket client socket
+     * @param domain domain name of the mail server
+     */
     public POP3ClientHandler(Socket socket, String domain) {
         super(socket, domain);
     }
 
+    /**
+     * Sends the POP3 greeting when a client connects.
+     */
     @Override
     protected void onConnect() {
         sendOK("POP3 server ready");
     }
 
+    /**
+     * Parses and dispatches POP3 commands received from the client.
+     *
+     * @param message raw POP3 command
+     */
     @Override
     public void analyzeMessage(String message) {
         String[] splits = message.split(" ", 2);
@@ -57,22 +78,40 @@ public class POP3ClientHandler extends AbstractClientHandler {
         }
     }
 
+    /**
+     * Sends a positive POP3 response.
+     *
+     * @param message response message
+     */
     private void sendOK(String message) {
         String result = "+OK ";
         result += message;
         sendToClient(result);
     }
-    
+
+    /**
+     * Sends a negative POP3 response.
+     *
+     * @param message error message
+     */
     private void sendERR(String message) {
         String result = "-ERR ";
         result += message;
         sendToClient(result);
     }
 
+    /**
+     * Sends a not-authorized error message.
+     */
     private void sendNotAuthorized() {
         sendToClient("-ERR Not authorized");
     }
 
+    /**
+     * Handles the USER command.
+     *
+     * @param username username provided by the client
+     */
     private void handleUSER(String username) {
         if(state != POP3State.AUTH) {
             sendERR("Already authenticated");
@@ -93,6 +132,11 @@ public class POP3ClientHandler extends AbstractClientHandler {
             sendERR("Username not existing");
     }
 
+    /**
+     * Handles the PASS command and authenticates the user.
+     *
+     * @param password password provided by the client
+     */
     private void handlePASS(String password) {
         if(state != POP3State.AUTH) {
             sendERR("Already authenticated");
@@ -112,6 +156,9 @@ public class POP3ClientHandler extends AbstractClientHandler {
         sendOK("Mailbox locked and ready");
     }
 
+    /**
+     * Handles the STAT command.
+     */
     private void handleSTAT() {
         if(state != POP3State.TRANSACTION) {
             sendNotAuthorized();
@@ -131,6 +178,9 @@ public class POP3ClientHandler extends AbstractClientHandler {
         sendOK(countMails + " " + sizeMails);
     }
 
+    /**
+     * Handles the LIST command.
+     */
     private void handleLIST() {
         if(state != POP3State.TRANSACTION) {
             sendNotAuthorized();
@@ -159,6 +209,11 @@ public class POP3ClientHandler extends AbstractClientHandler {
         sendToClient(".");
     }
 
+    /**
+     * Handles the RETR command and sends the message content.
+     *
+     * @param argument message index
+     */
     private void handleRETR(String argument) {
         if(state != POP3State.TRANSACTION) {
             sendNotAuthorized();
@@ -191,6 +246,11 @@ public class POP3ClientHandler extends AbstractClientHandler {
         catch(NumberFormatException e) {sendERR("Invalid argument");}
     }
 
+    /**
+     * Handles the DELE command and marks a message for deletion.
+     *
+     * @param argument message index
+     */
     private void handleDELE(String argument) {
         if(state != POP3State.TRANSACTION) {
             sendNotAuthorized();
@@ -214,6 +274,9 @@ public class POP3ClientHandler extends AbstractClientHandler {
         catch(NumberFormatException e) {sendERR("Invalid argument");}
     }
 
+    /**
+     * Handles the QUIT command and applies pending deletions.
+     */
     private void handleQUIT() {
         if(state == POP3State.TRANSACTION) {
             for(int index : mailsToDelete)

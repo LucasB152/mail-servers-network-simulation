@@ -93,6 +93,11 @@ public class Email {
         this.flags = flags;
     }
 
+    /**
+     * Checks whether the message is marked as deleted.
+     *
+     * @return true if the DELETED flag is present
+     */
     public boolean isFlagDeleted() {
         for(IMAPFlag flag : flags) {
             if(flag.equals(IMAPFlag.DELETED))
@@ -105,6 +110,11 @@ public class Email {
         this.date = date;
     }
 
+    /**
+     * Computes the size of the email in bytes.
+     *
+     * @return message size in bytes
+     */
     public int getSize() {
         int size = from.getBytes(StandardCharsets.UTF_8).length;
         size += to.getBytes(StandardCharsets.UTF_8).length;
@@ -126,6 +136,11 @@ public class Email {
                 '}';
     }
 
+    /**
+     * Formats the email for IMAP FETCH responses.
+     *
+     * @return formatted email content
+     */
     public String printIMAP() {
         StringBuilder response = new StringBuilder();
         response.append("From: ").append(from).append("\r\n");
@@ -136,6 +151,11 @@ public class Email {
         return response.toString();
     }
 
+    /**
+     * Formats the IMAP flags of the message.
+     *
+     * @return formatted flags string
+     */
     public String printFlags() {
         StringBuilder response = new StringBuilder();
         for(IMAPFlag flag : flags) 

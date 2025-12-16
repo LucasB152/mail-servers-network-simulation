@@ -10,48 +10,63 @@ import java.util.Map;
  */
 public class SMTPMailForwarder {
     private Map<String, String> knownServers = new HashMap<>();
+
+    /**
+     * Creates a new mail forwarder with a set of known mail servers.
+     *
+     * @param knownServers map of known domains to mail server IP addresses
+     */
     public SMTPMailForwarder(Map<String, String> knownServers) {
         this.knownServers = knownServers;
     }
 
+    /**
+     * Forwards an email to a remote mail server using SMTP.
+     *
+     * @param email     email to forward
+     * @param ipAddress IP address of the destination mail server
+     */
     public void forwardEmail(Email email, String ipAddress) {
         try (Socket socket = new Socket(ipAddress, 25)) {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 
-            sendCommand(writer, reader, "HELO localhost");
+            sendCommand(writer, "HELO localhost");
+            sendCommand(writer, "MAIL FROM:<" + email.getMailFrom() + ">");
+            sendCommand(writer, "RCPT TO:<" + email.getRcptTo() + ">");
+            sendCommand(writer, "DATA");
 
-            sendCommand(writer, reader, "MAIL FROM:<" + email.getMailFrom() + ">");
-
-            sendCommand(writer, reader, "RCPT TO:<" + email.getRcptTo() + ">");
-
-            sendCommand(writer, reader, "DATA");
-
-            // Corps du message
             writer.println("Subject: " + email.getSubject());
             writer.println("From: " + email.getFrom());
             writer.println("To: " + email.getTo());
             writer.println(email.getBody());
             writer.println(".");
 
-            // Lire la réponse finale du serveur
-            System.out.println("Serveur: " + reader.readLine());
-
-            // Quitter la session SMTP
-            sendCommand(writer, reader, "QUIT");
+            sendCommand(writer, "QUIT");
 
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("Error during the forwarding of the email: " + e.getMessage());
         }
     }
 
-    private static void sendCommand(PrintWriter writer, BufferedReader reader, String command) throws IOException {
+    /**
+     * Sends an SMTP command to the remote server.
+     *
+     * @param writer  output stream to the server
+     * @param command SMTP command to send
+     * @throws IOException if an I/O error occurs
+     */
+    private static void sendCommand(PrintWriter writer, String command) throws IOException {
         writer.println(command);
     }
 
+    /**
+     * Resolves the IP address of a domain using predefined mappings or DNS lookup.
+     *
+     * @param domain destination domain
+     * @return IP address of the mail server, or {@code null} if unresolved
+     */
     public String findIpAddress(String domain) {
         String ipAddress = knownServers.get(domain);
-        System.out.println("-----Voici l'adresse IP de info.uliege.be: " + ipAddress);
         return ipAddress == null ? dnsLookup(domain) : ipAddress;
     }
 
@@ -75,7 +90,7 @@ public class SMTPMailForwarder {
                 line = line.trim();
                 if (line.isEmpty()) continue;
 
-                System.out.println("Line: " + line);
+                System.out.println("DNS Lookup line: " + line);
                 // Format example : "10 mail.example.com."
                 String[] parts = line.split("\\s+");
                 if (parts.length < 2) continue;
@@ -112,7 +127,7 @@ public class SMTPMailForwarder {
             return ip;
 
         } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+            System.err.println("Error during the dns lookup: " + e.getMessage());
         }
 
         return null;

@@ -4,46 +4,64 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Utility class responsible for storing and loading emails using a JSON-based format.
+ * It manages message persistence as well as IMAP-related metadata such as UID and UIDVALIDITY.
+ * @author Lucas BAUDUIN & Lucas GIOT
+ */
 public class EmailJSONManager {
 
     private static final String METADATA_FILENAME = "mailbox_metadata.json";
 
-    public static void writeEmailToJson(Email email, String mailboxPath) throws IOException {
+    /**
+     * Writes an email to a mailbox directory using a JSON file.
+     * It also updates the mailbox metadata (UIDNEXT and UIDVALIDITY).
+     * @param email        email to store
+     * @param mailboxPath path to the mailbox directory
+     * @throws IOException if an I/O error occurs
+     */
+    public synchronized static void writeEmailToJson(Email email, String mailboxPath) throws IOException {
         File mailboxDir = new File(mailboxPath);
 
         if (!mailboxDir.exists() && !mailboxDir.mkdirs()) {
             throw new IOException("Impossible de créer le dossier mailbox : " + mailboxDir.getAbsolutePath());
         }
 
-        // Lire ou créer metadata.json
+        // read or create metadata.json
         File metadataFile = new File(mailboxDir, METADATA_FILENAME);
         long uidNext = 1;
         long uidValidity = System.currentTimeMillis();
 
         if (metadataFile.exists()) {
-            // Lire uidnext et uidvalidity
+            // Read uidnext & uidvalidity
             try (BufferedReader br = new BufferedReader(new FileReader(metadataFile))) {
                 String json = br.readLine().trim();
                 uidNext = Long.parseLong(extractJsonValue(json, "uidnext"));
                 uidValidity = Long.parseLong(extractJsonValue(json, "uidvalidity"));
             } catch (Exception e) {
-                // Si erreur, utiliser 1 et timestamp
                 uidNext = 1;
                 uidValidity = System.currentTimeMillis();
             }
         } else {
-            // Créer metadata.json
+            // Create metadata.json
             writeMetadata(metadataFile, uidNext, uidValidity);
         }
 
-        // Créer le fichier mail msg_<uid>.json
+        // Create the file mail msg_<uid>.json
         File mailFile = new File(mailboxDir, "msg_" + uidNext + ".json");
         writeMailFile(mailFile, email);
 
-        // Incrémenter uidnext et sauvegarder
+        // Increment uidnext
         writeMetadata(metadataFile, uidNext + 1, uidValidity);
     }
 
+    /**
+     * Writes the mailbox metadata file.
+     * @param metadataFile metadata file
+     * @param uidNext      next available UID
+     * @param uidValidity  mailbox UIDVALIDITY
+     * @throws IOException if an I/O error occurs
+     */
     private static void writeMetadata(File metadataFile, long uidNext, long uidValidity) throws IOException {
         StringBuilder json = new StringBuilder();
         json.append("{\n");
@@ -55,6 +73,12 @@ public class EmailJSONManager {
         }
     }
 
+    /**
+     * Writes a single email to a JSON file.
+     * @param file  destination file
+     * @param email email to write
+     * @throws IOException if an I/O error occurs
+     */
     private static void writeMailFile(File file, Email email) throws IOException {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
@@ -73,13 +97,18 @@ public class EmailJSONManager {
         }
     }
 
+    /**
+     * Extracts a numeric value from a JSON string.
+     * @param json JSON content
+     * @param key  key to extract
+     * @return extracted numeric value as a string
+     */
     private static String extractJsonValue(String json, String key) {
         String pattern = "\"" + key + "\":";
         int start = json.indexOf(pattern);
         if (start == -1) return "";
         start += pattern.length();
 
-        // Avancer jusqu'au chiffre
         while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '\"')) start++;
 
         int end = start;
@@ -88,6 +117,12 @@ public class EmailJSONManager {
         return json.substring(start, end);
     }
 
+    /**
+     * Reads an email from a JSON file.
+     * @param filePath path to the email JSON file
+     * @return reconstructed {@code Email} object
+     * @throws IOException if an I/O error occurs
+     */
     public static Email readEmailFromJson(String filePath) throws IOException {
         File file = new File(filePath);
         StringBuilder jsonBuilder = new StringBuilder();
@@ -108,14 +143,14 @@ public class EmailJSONManager {
         String dateStr = extractJsonValueString(json, "date");
 
         // Get the flags and convert them in IMAPFlag objects
-        String[] flagsStr = extractJsonArray(json, "flags");
+        String[] flagsStr = extractJsonArray(json);
         List<IMAPFlag> flags = new ArrayList<>();
-        for (int i = 0; i < flagsStr.length; i++) {
-            flags.add(IMAPFlag.fromString(flagsStr[i]));
+        for (String s : flagsStr) {
+            flags.add(IMAPFlag.fromString(s));
         }
 
         // Parse the date
-        Date date = null;
+        Date date;
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
             date = sdf.parse(dateStr);
@@ -126,6 +161,12 @@ public class EmailJSONManager {
         return new Email(from, to, flags, subject, body, date);
     }
 
+    /**
+     * Extracts a string value from a JSON string.
+     * @param json JSON content
+     * @param key  key to extract
+     * @return extracted string value
+     */
     private static String extractJsonValueString(String json, String key) {
         String pattern = "\"" + key + "\": \"";
         int start = json.indexOf(pattern);
@@ -136,8 +177,13 @@ public class EmailJSONManager {
         return json.substring(start, end);
     }
 
-    private static String[] extractJsonArray(String json, String key) {
-        String pattern = "\"" + key + "\": [";
+    /**
+     * Extracts an array of strings from a JSON string.
+     * @param json JSON content
+     * @return array of extracted values
+     */
+    private static String[] extractJsonArray(String json) {
+        String pattern = "\"" + "flags" + "\": [";
         int start = json.indexOf(pattern);
         if (start == -1) return new String[0];
         start += pattern.length();
@@ -148,7 +194,6 @@ public class EmailJSONManager {
         String arrayContent = json.substring(start, end).trim();
         if (arrayContent.isEmpty()) return new String[0];
 
-        // Séparer les éléments par virgule et enlever les guillemets
         String[] items = arrayContent.split(",");
         for (int i = 0; i < items.length; i++) {
             items[i] = items[i].trim().replaceAll("^\"|\"$", "");
