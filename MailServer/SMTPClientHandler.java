@@ -133,11 +133,13 @@ public class SMTPClientHandler extends AbstractClientHandler {
                 //Reinitialize for another mail
                 this.dataBuffer.setLength(0);
                 this.nextState = SMTPState.MAIL_FROM;
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("from:\\s*[a-zA-Z0-9._%+-]+(?:\\s*<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})>)?\n")) {
-                this.email.setFrom(message.substring(5).trim());
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("to:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
-                this.email.setTo(message.substring(3).trim());
-            }else if (this.email.getSubject() == null && message.toLowerCase().matches("subject:\\s*.*")) {
+            }else if (message.toLowerCase().matches("from:\\s*[a-zA-Z0-9._%+-]+(?:\\s*<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})>)?")) {
+                System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++from true");
+                this.email.setFrom(message.substring(message.indexOf(":") + 1).trim());
+            }else if (message.toLowerCase().matches("to:\\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")) {
+                System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++to true");
+                this.email.setTo(message.substring(message.indexOf(":") + 1).trim());
+            }else if (message.toLowerCase().matches("subject:\\s*.*")) {
                 this.email.setSubject(message.substring(8).trim());
             }else if (!message.matches("^[A-Za-z-]+:.*")){
                 // This condition enable to ignore all the other headers that we doesn't support in this project (Content-Type, Content-Transfer-Encoding, ...)
