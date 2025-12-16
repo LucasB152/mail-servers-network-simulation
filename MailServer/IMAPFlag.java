@@ -11,6 +11,21 @@ public enum IMAPFlag {
         return name;
     }
 
+    public static IMAPFlag correspondingFlag(String input) {
+        switch (input) {
+            case "Seen":
+                return SEEN;
+            case "Answered":
+                return ANSWERED;
+            case "Flagged":
+                return FLAGGED;
+            case "Deleted":
+                return DELETED;
+            default:
+                return null;
+        }
+    }
+
     public static IMAPFlag fromString(String s) {
         for (IMAPFlag flag : IMAPFlag.values()) {
             if (flag.getName().equalsIgnoreCase(s)) {

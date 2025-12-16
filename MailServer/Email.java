@@ -1,4 +1,6 @@
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Date;
 
 /**
@@ -12,7 +14,8 @@ public class Email {
     private String rcptTo;
 
     //When the Email is created, there is no flags
-    private IMAPFlag[] flags = new IMAPFlag[0];
+    //private IMAPFlag[] flags = new IMAPFlag[0];
+    List<IMAPFlag> flags = new ArrayList<>();
     private String from;
     private String to;
     private String subject;
@@ -21,7 +24,7 @@ public class Email {
 
     public Email() {}
 
-    public Email(String from, String to, IMAPFlag[] flags, String subject, String body, Date date) {
+    public Email(String from, String to, List<IMAPFlag> flags, String subject, String body, Date date) {
         this.from = from;
         this.to = to;
         this.flags = flags;
@@ -82,12 +85,20 @@ public class Email {
         return date;
     }
 
-    public IMAPFlag[] getFlags() {
+    public List<IMAPFlag> getFlags() {
         return flags;
     }
 
-    public void setFlags(IMAPFlag[] flags) {
+    public void setFlags(List<IMAPFlag> flags) {
         this.flags = flags;
+    }
+
+    public boolean isFlagDeleted() {
+        for(IMAPFlag flag : flags) {
+            if(flag.equals(IMAPFlag.DELETED))
+                return true;
+        }
+        return false;
     }
 
     public void setDate(Date date) {
@@ -113,5 +124,21 @@ public class Email {
                 ", body='" + body + '\'' +
                 ", date=" + date +
                 '}';
+    }
+
+    public String printIMAP() {
+        StringBuilder response = new StringBuilder();
+        response.append("From: ").append(from).append("\n");
+        response.append("To: ").append(to).append("\n");
+        response.append("Subject: ").append(subject).append("\n\n");
+        response.append(body);
+        return response.toString();
+    }
+
+    public String printFlags() {
+        StringBuilder response = new StringBuilder();
+        for(IMAPFlag flag : flags) 
+            response.append("\\").append(flag).append(" ");
+        return response.toString();
     }
 }

@@ -26,6 +26,10 @@ public class POP3ClientHandler extends AbstractClientHandler {
             argument = splits[1];
 
         switch (command) {
+            case "CAPA":
+                sendOK("Capability list follows");
+                sendToClient(".");
+                break;
             case "USER":
                 handleUSER(argument);
                 break;
@@ -48,7 +52,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
                 handleQUIT();
                 break;
             default:
-                sendToClient("-ERR Unknown command");
+                sendERR("Unknown command");
                 break;
         }
     }
@@ -78,7 +82,10 @@ public class POP3ClientHandler extends AbstractClientHandler {
             sendERR("Invalid username");
         }
 
-        if(Users.userExists(username)) {
+        String[] splits = username.split("@", 2);
+        String domain = splits[1];
+
+        if(Users.userExists(username) && domain.equals(super.domain)) {
             currentUser = username;
             sendOK("");
         }
@@ -140,7 +147,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
             }
             catch(IOException e) {e.printStackTrace();}
         }
-        sendOK(countMails + "messages (" + sizeMails + " octets)");
+        sendOK(countMails + " messages (" + sizeMails + " octets)");
 
         for(int i = 1; i <= countMails; i++) {
             try {
@@ -202,7 +209,7 @@ public class POP3ClientHandler extends AbstractClientHandler {
                 return;
             }
 
-            mailsToDelete.add(id - 1);
+            mailsToDelete.add(id);
             sendOK("Message marked for deletion");
         }
         catch(NumberFormatException e) {sendERR("Invalid argument");}
