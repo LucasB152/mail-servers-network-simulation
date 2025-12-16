@@ -1,12 +1,23 @@
 import java.io.*;
 import java.util.*;
 
+/**
+ * Manages persistent storage of user mailboxes and emails.
+ * This class provides mailbox and message operations used by POP3 and IMAP.
+ *
+ * @author Lucas BAUDUIN & Lucas GIOT
+ */
 public class MailStorage {
     private static final String ROOTDIR = "data";
     private String user;
     private String domain;
     private String currentDir;
 
+    /**
+     * Creates a mail storage instance for a given user.
+     *
+     * @param username full email address of the user
+     */
     public MailStorage(String username) {
         String[] splits = username.split("@", 2);
         user = splits[0];
@@ -14,6 +25,9 @@ public class MailStorage {
         currentDir = "INBOX";
     }
 
+    /**
+     * @return name of the currently selected mailbox
+     */
     public String getCurrentMailbox() {
         return currentDir;
     }
@@ -21,6 +35,7 @@ public class MailStorage {
     private File getUserDir() {
         return new File(ROOTDIR + "/" + domain + "/" + user);
     }
+
 
     private File getCurrentDir() {
         return new File(ROOTDIR + "/" + domain + "/" + user + "/" + currentDir);
@@ -35,6 +50,11 @@ public class MailStorage {
         return Integer.parseInt(name.substring(4, name.length() - 5));
     }
 
+    /**
+     * Lists all mailboxes of the current user.
+     *
+     * @return list of mailbox names
+     */
     public List<String> listMailBoxes() {
         List<String> mailboxes = new ArrayList<>();
         
@@ -52,11 +72,23 @@ public class MailStorage {
         return mailboxes;
     }
 
+    /**
+     * Checks whether a mailbox exists.
+     *
+     * @param mailboxName mailbox name
+     * @return {@code true} if the mailbox exists
+     */
     public boolean mailboxExists(String mailboxName) {
         File mailboxDir = getAnyDir(mailboxName);
         return mailboxDir.exists();
     }
 
+    /**
+     * Creates a new mailbox.
+     *
+     * @param mailboxName mailbox name
+     * @return {@code true} if creation succeeds
+     */
     public boolean createMailbox(String mailboxName) {
         File mailboxDir = getAnyDir(mailboxName);
         if(mailboxExists(mailboxName))
@@ -85,10 +117,19 @@ public class MailStorage {
         return uidValidity;
     }
 
+    /**
+     * Selects the mailbox used for subsequent operations.
+     * @param mailboxName mailbox name
+     */
     public void selectMailbox(String mailboxName) {
         currentDir = mailboxName;
     }
 
+    /**
+     * Deletes a mailbox and all its contents.
+     * @param mailboxName mailbox name
+     * @return {@code true} if deletion succeeds
+     */
     public boolean deleteMailbox(String mailboxName) {
         if(mailboxName.equalsIgnoreCase("INBOX")) 
             return false;
@@ -108,6 +149,12 @@ public class MailStorage {
         return mailboxDir.delete();
     }
 
+    /**
+     * Renames a mailbox.
+     * @param oldName original mailbox name
+     * @param newName new mailbox name
+     * @return {@code true} if rename succeeds
+     */
     public boolean renameMailbox(String oldName, String newName) {
         if(oldName.equalsIgnoreCase("INBOX")) 
             return false;
@@ -121,6 +168,10 @@ public class MailStorage {
         return renamed;
     }
 
+    /**
+     * Lists all email files in the current mailbox.
+     * @return list of email files
+     */
     public List<File> listMails() {
         File inbox = getCurrentDir();
         if(!inbox.exists())
@@ -139,6 +190,9 @@ public class MailStorage {
         return list;
     }
 
+    /**
+     * @return UIDVALIDITY value
+     */
     public int getUIDValidity() {
         File mailbox = getCurrentDir();
         File jsonFile = new File(mailbox, "mailbox_metadata.json");
@@ -164,10 +218,20 @@ public class MailStorage {
         return 1;
     }
 
+    /**
+     * @return number of emails
+     */
     public int getMailsCount() {
         return listMails().size();
     }
 
+    /**
+     * Retrieves an email by index.
+     *
+     * @param index message index
+     * @return {@code Email} object
+     * @throws IOException if an I/O error occurs
+     */
     public Email getMail(int index) throws IOException {
         List<File> files = listMails();
         if(index < 1 || index > files.size())
@@ -177,6 +241,12 @@ public class MailStorage {
         return EmailJSONManager.readEmailFromJson(file.getAbsolutePath());
     }
 
+    /**
+     * Retrieves all emails from the current mailbox.
+     *
+     * @return list of emails
+     * @throws IOException if an I/O error occurs
+     */
     public List<Email> getAllMails() throws IOException{
         List<File> files = listMails();
         List<Email> list = new ArrayList<>();
@@ -187,6 +257,11 @@ public class MailStorage {
         return list;
     }
 
+    /**
+     * Permanently deletes an email.
+     *
+     * @param index message index
+     */
     public void deleteMail(int index) {
         List<File> files = listMails();
         if(index < 1 || index > files.size())
