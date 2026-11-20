@@ -4,6 +4,8 @@
 
 A **mail server written from scratch in Java**, implementing **SMTP**, **POP3** and **IMAP**, deployed on a **simulated multi-domain network** built with Docker Compose. Each domain has its own subnet, DNS server and mail server. The subnets are connected by routers running **OSPF**, and mails between domains are forwarded using **DNS MX records**.
 
+📄 The full project report is available in [`docs/report.pdf`](docs/report.pdf).
+
 ## Network topology
 
 ```
