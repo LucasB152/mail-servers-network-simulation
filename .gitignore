@@ -64,3 +64,8 @@ build/
 
 # Windows
 Thumbs.db
+
+# Runtime files
+*.jnl
+frr/log
+MailServer/data/

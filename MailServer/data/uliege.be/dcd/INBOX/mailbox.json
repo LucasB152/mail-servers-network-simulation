@@ -1,6 +1,0 @@
-{
-  "from": "alice@uliege.be",
-  "to": "bob@uliege.be",
-  "subject": "Test sujet",
-  "body": "Corps du message",
-}
