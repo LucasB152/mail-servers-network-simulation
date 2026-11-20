@@ -1,6 +1,6 @@
 # Mail Servers on a Simulated Network — SMTP, POP3, IMAP, DNS and OSPF
 
-> University project · *Computer Networking* (University of Liège) · Java · Docker
+> University project · *Introduction to Computer Networking* (INFO0010, University of Liège) · Java · Docker
 
 A **mail server written from scratch in Java**, implementing **SMTP**, **POP3** and **IMAP**, deployed on a **simulated multi-domain network** built with Docker Compose. Each domain has its own subnet, DNS server and mail server. The subnets are connected by routers running **OSPF**, and mails between domains are forwarded using **DNS MX records**.
 
